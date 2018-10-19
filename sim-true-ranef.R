@@ -8,12 +8,18 @@ N <- as.numeric(args[1])
 nsim <- as.numeric(args[2])
 myseed <- as.numeric(args[3])
 mycores <- args[4]
-options(cores=mycores)
+
 set.seed(myseed)
 cat("\nN = "); cat(N)
 cat("\nnsim = "); cat(nsim)
 cat("\nseed = "); cat(myseed)
-cat("\ncores = "); cat(mycores);
+cat("\ndesired cores = "); cat(mycores);
+cat("\ndetectCores() = "); cat(detectCores())
+mycores <- max(c(mycores, detectCores() - 1))
+options(cores=mycores)
+options(mc.cores=mycores)
+cat("\n--using "); cat(mycores); cat(" cores")
+cat("\noption('mc.cores',2) = "); cat(getOption("mc.cores", 2))
 
 # Set up generative parameters so that the true marginal random effects structure
 # is the same as the one we use for estimation.
@@ -218,14 +224,14 @@ f_sl_small <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_small,
                          theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
 save(alpha_small, small_effsizes, res_small, simparm,
-     file= paste("smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
+     file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_small)
 
 f_sl_med <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_med,
                        theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
 save(alpha_med, med_effsizes, res_med, simparm,
-     file= paste("medeffect-N",N,"-nsim",nsim,".RData", sep=''))
+     file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_med)
 
 
@@ -233,5 +239,5 @@ f_sl_large <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_large,
                          theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
 save(alpha_large, large_effsizes, res_large, simparm,
-     file= paste("largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
+     file= paste("sim1-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_large)
