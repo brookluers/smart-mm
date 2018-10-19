@@ -214,7 +214,8 @@ geeglm_smart_exch <- function(dat_aug_weight, ff_gee){
   return(
     list(
       b = sfgee$coefficients[,'Estimate'],
-      se = sfgee$coefficients[,'Std.err'],
+      vcov = sfgee$cov.unscaled,
+      #se = sfgee$coefficients[,'Std.err'],
       Vhat = Vhat1,
       sig2hat = phihat1
     )
@@ -245,7 +246,8 @@ geeglm_smart_indep <- function(dat_aug_weight, ff_gee){
   return(
     list(
       b = sfgee$coefficients[,'Estimate'],
-      se = sfgee$coefficients[,'Std.err'],
+      #se = sfgee$coefficients[,'Std.err'],
+      vcov = sfgee$cov.unscaled,
       Vhat = Vhat1,
       sig2hat = phihat1
     )
@@ -279,7 +281,8 @@ geeglm_smart_unstr <- function(dat_aug_weight, ff_gee){
   return(
     list(
       b = sfgee$coefficients[,'Estimate'],
-      se = sfgee$coefficients[,'Std.err'],
+      #se = sfgee$coefficients[,'Std.err'],
+      sfgee$cov.unscaled,
       Vhat = Vhat1,
       sig2hat = phihat1
     )

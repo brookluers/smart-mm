@@ -169,9 +169,8 @@ large_effsizes <-
                  psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff))
 
 
-
-
 methodnames <- c("exch_lucy",
+                 "indep_lucy",
                  "exch_plugin",
                  "unstr_plugin",
                  "mm")
@@ -181,6 +180,7 @@ onesimrun <- function(f_sl){
   d_aw <- data.frame(get_aug_weight(dd))
   d_2a <- data.frame(get_2aug(dd))
   fit_exch_lucy <- geeglm_smart_exch(d_aw, ff_fixef)
+  fit_indep_lucy <- geeglm_smart_indep(d_aw, ff_fixef)
   fit_exch_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='exchangeable')
   fit_unstr_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='unstructured_a1a2')
   fitmer <- fit_smart_lmer(d_2a, d_aw, ff_lmer_slopes, ff_fixef, ff_Z)
@@ -188,15 +188,16 @@ onesimrun <- function(f_sl){
   ## betahat
   coefmat <- 
     rbind(fit_exch_lucy$b,
+          fit_indep_lucy$b,
         fit_exch_plugin$b,
         fit_unstr_plugin$b,
         fitmer$b)
   
-  semat <- rbind(
-    fit_exch_lucy$se,
-    sqrt(diag(fit_exch_plugin$vcov)),
-    sqrt(diag(fit_unstr_plugin$vcov)),
-    sqrt(diag(fitmer$vcov)))
+  vlist <- setNames(list(fit_exch_lucy$vcov,
+                         fit_indep_lucy$vcov,
+                         fit_exch_plugin$vcov,
+                         fit_unstr_plugin$vcov,
+                         fitmer$vcov), methodnames)
   
   ## V estimates
   Vhat_mm <- get_Vhat_lmer(fitmer, tvec, ff_Z)
@@ -207,12 +208,14 @@ onesimrun <- function(f_sl){
   avg_V_unstr <- (1/length(regimenames)) * avg_V_unstr
   vnorms <-
     c(norm(fit_exch_lucy$Vhat - Vi, type='F'),
+      norm(fit_indep_lucy$Vhat - Vi, type='F'),
       norm(fit_exch_plugin$Vhat_a1a2[[1]] - Vi, type='F'),
-      norm(avg_V_unstr - Vi, type='F'),  norm(Vhat_mm - Vi,type='F'))
+      norm(avg_V_unstr - Vi, type='F'),  
+      norm(Vhat_mm - Vi,type='F'))
   
   return(list(
     bhat=coefmat,
-    se=semat,
+    vlist=vlist,
     vnorms=vnorms,
     method=methodnames
   ))
