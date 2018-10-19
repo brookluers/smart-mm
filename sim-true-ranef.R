@@ -59,8 +59,11 @@ G <- matrix(c(0.2,-0.05,-0.05, 0.1),
 cat("True marginal V:\n")
 (Vi <- Zi %*% G %*% t(Zi) + sigma^2 * diag(length(tvec)))
 mmean <- get_mmean(alpha_small, unique(X), theta, knot, tvec, a1=c(1,-1), a2=c(1,-1), G,ff_Z, sigma, cutoff)
-cat("\nTrue regression coefficients: \n")
-(truecoefs <- get_truecoefs(alpha_small, theta, knot, G, ff_Z, sigma, cutoff))
+cat("\nTrue regression coefficients, small effect size: \n")
+(truecoefs_small <- get_truecoefs(alpha_small, theta, knot, G, ff_Z, sigma, cutoff))
+truecoefs_med <- get_truecoefs(alpha_med, theta, knot, G, ff_Z, sigma, cutoff)
+truecoefs_large <- get_truecoefs(alpha_large, theta, knot, G, ff_Z, sigma, cutoff)
+
 cat("\nProbability of nonresponder: \n")
 (pinr_a1 <- c('1' = get_pinr(alpha_small, knot, a1=1, G, ff_Z, sigma, cutoff),
              '-1' = get_pinr(alpha_small, knot, a1=-1, G, ff_Z, sigma, cutoff)) )
@@ -218,19 +221,19 @@ onesimrun <- function(f_sl){
 simparm <- list(nsim=nsim,
                 N=N,G=G, Vi=Vi, tvec=tvec,knot=knot,sigma=sigma,ff_lmer_slopes=ff_lmer_slopes,ff_fixef=ff_fixef,
                 X=X, theta=theta,psi=psi,cutoff=cutoff,ff_Z=ff_Z,myseed=myseed,
-                mycores=mycores,truecoefs=truecoefs,pinr_a1=pinr_a1,mmean=mmean,vardat=vardat)
+                mycores=mycores,pinr_a1=pinr_a1,mmean=mmean,vardat=vardat)
 
 f_sl_small <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_small, 
                          theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
-save(alpha_small, small_effsizes, res_small, simparm,
+save(alpha_small, small_effsizes, truecoefs_small, res_small, simparm,
      file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_small)
 
 f_sl_med <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_med,
                        theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
-save(alpha_med, med_effsizes, res_med, simparm,
+save(alpha_med, med_effsizes, truecoefs_med, res_med, simparm,
      file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_med)
 
@@ -238,6 +241,6 @@ rm(res_med)
 f_sl_large <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_large,
                          theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
 res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
-save(alpha_large, large_effsizes, res_large, simparm,
+save(alpha_large, large_effsizes, truecoefs_large, res_large, simparm,
      file= paste("sim1-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
 rm(res_large)
