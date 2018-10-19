@@ -1,0 +1,237 @@
+#!/usr/bin/env Rscript
+args <- commandArgs(trailingOnly=TRUE)
+cat("Running the 'correct random effects' simulation with ")
+
+library(parallel)
+
+N <- as.numeric(args[1])
+nsim <- as.numeric(args[2])
+myseed <- as.numeric(args[3])
+mycores <- args[4]
+options(cores=mycores)
+set.seed(myseed)
+cat("\nN = "); cat(N)
+cat("\nnsim = "); cat(nsim)
+cat("\nseed = "); cat(myseed)
+cat("\ncores = "); cat(mycores);
+
+# Set up generative parameters so that the true marginal random effects structure
+# is the same as the one we use for estimation.
+# And control the effect size.
+
+## Make end-of-study(time) - knot = 1
+
+## When alhpa5=alpha6=0 and psi(a1)=0, then the
+## marginal variances do not differ by regime, and the marginal residual has the 
+## random effects structure we use for estimation.
+##   In this case, ||Vhat - V|| should be very small
+source("gen.R")
+source("fit.R")
+source("fitplugin.R")
+# alpha <- c(1, 0.09, 0.1, 0.15, 0.08, 0, 0)
+a1s <- c(1,-1)
+a2s <- c(1,-1)
+allregime <- expand.grid(a1=a1s,a2=a2s)
+regimenames <- as.character(with(allregime,interaction(a1,a2)))
+alpha_small <- c(1, 0.1, 0.027, 0.15, 0.08, 0, 0)
+alpha_med <- c(1, 0.1, 0.128, 0.15, 0.08, 0, 0)
+alpha_large <- c(1, 0.1, 0.229, 0.15, 0.08, 0, 0)
+psi <- c('1'=0, '-1' = 0)
+theta <- -0.08
+coefnames <- c(paste('beta', 0:6,sep=''), 'eta')
+tvec <- c(0, 0.5, 1.5, 2, 2.25, 2.5, 3)
+knot <- tvec[4]
+sigma <- 1
+X <- vector('numeric', length=N)
+X[1:floor(N/2)] <- 1
+X[(floor(N/2)+1):N] <- -1
+cutoff <- 1.1
+ff_Z <- Y ~ 1 + time
+Zi <- model.matrix(ff_Z, data.frame(time=tvec,Y=-99))
+G <- matrix(c(0.2,-0.05,-0.05, 0.1),
+            nrow=2,byrow=T)
+cat("True marginal V:\n")
+(Vi <- Zi %*% G %*% t(Zi) + sigma^2 * diag(length(tvec)))
+mmean <- get_mmean(alpha_small, unique(X), theta, knot, tvec, a1=c(1,-1), a2=c(1,-1), G,ff_Z, sigma, cutoff)
+cat("\nTrue regression coefficients: \n")
+(truecoefs <- get_truecoefs(alpha_small, theta, knot, G, ff_Z, sigma, cutoff))
+cat("\nProbability of nonresponder: \n")
+(pinr_a1 <- c('1' = get_pinr(alpha_small, knot, a1=1, G, ff_Z, sigma, cutoff),
+             '-1' = get_pinr(alpha_small, knot, a1=-1, G, ff_Z, sigma, cutoff)) )
+
+vardat <- expand.grid(tval=tvec,
+                      a1=c(1,-1),
+                      a2=c(1,-1))
+vardat$mvar <- 
+  mapply(tval = vardat$tval,
+         a1=vardat$a1,
+         a2=vardat$a2,
+         FUN = function(tval, a1, a2) return(get_margvar(tval =tval, 
+                                                         alpha_small, psi, knot, 
+                                                         a1=a1, a2=a2, G, ff_Z, sigma,cutoff)))
+
+# All regimes have the same variance since alpha5=alpha6=psi=0
+#Vtrue_a1a2 <- mapply(a1=allregime$a1, a2=allregime$a2,
+#                     function(a1, a2) return(get_vcovmat(a1=a1,a2=a2,tvec,alpha_small,theta,psi,knot,G,ff_Z,sigma,cutoff)),
+#                     SIMPLIFY = FALSE)
+#names(Vtrue_a1a2) <- regimenames
+
+ff_po <- 
+  Ya1a2 ~
+  1 + 
+  I( time * 1 * (time <= knot) + knot * 1 * (time > knot)) +
+  I( time * 1 * (time <= knot) * a1 + knot * a1 * 1 * (time > knot)) +
+  I( (time - knot) * 1 * (time > knot)) + 
+  I( (time - knot) * a1 * 1 * (time > knot)) +
+  I( (time - knot) * a2 * 1 * (time > knot)) + 
+  I( (time - knot) * a1 * a2 * 1 * (time > knot)) +
+  X 
+
+ff_lmer_slopes <-
+  Y ~
+  1 + 
+  I( time * 1 * (time <= knot) + knot * 1 * (time > knot)) +
+  I( time * 1 * (time <= knot) * A1 + knot * A1 * 1 * (time > knot)) +
+  I( (time - knot) * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * 1 * (time > knot)) +
+  I( (time - knot) * A2 * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * A2 * 1 * (time > knot)) +
+  X + 
+  (1 + time| id2rep)
+
+ff_lmer_intercept <-
+  Y ~
+  1 + 
+  I( time * 1 * (time <= knot) + knot * 1 * (time > knot)) +
+  I( time * 1 * (time <= knot) * A1 + knot * A1 * 1 * (time > knot)) +
+  I( (time - knot) * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * 1 * (time > knot)) +
+  I( (time - knot) * A2 * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * A2 * 1 * (time > knot)) +
+  X + 
+  (1 | id2rep)
+
+ff_fixef <- 
+  Y ~
+  1 + 
+  I( time * 1 * (time <= knot) + knot * 1 * (time > knot)) +
+  I( time * 1 * (time <= knot) * A1 + knot * A1 * 1 * (time > knot)) +
+  I( (time - knot) * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * 1 * (time > knot)) +
+  I( (time - knot) * A2 * 1 * (time > knot)) + 
+  I( (time - knot) * A1 * A2 * 1 * (time > knot)) +
+  X 
+
+
+small_effsizes <- 
+  rbind(
+  get_effsizes(a11=1, a21=1, a12=-1, a22=1, alpha= alpha_small, 
+              psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+  get_effsizes(a11=1, a21=1, a12=-1, a22=-1, alpha= alpha_small, 
+             psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+get_effsizes(a11=1, a21=-1, a12=-1, a22=1, alpha= alpha_small, 
+             psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+get_effsizes(a11=-1, a21=-1, a12=-1, a22=1, alpha= alpha_small, 
+             psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff))
+
+
+med_effsizes <- 
+  rbind(
+    get_effsizes(a11=1, a21=1, a12=-1, a22=1, alpha= alpha_med, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=1, a21=1, a12=-1, a22=-1, alpha= alpha_med, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=1, a21=-1, a12=-1, a22=1, alpha= alpha_med, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=-1, a21=-1, a12=-1, a22=1, alpha= alpha_med, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff))
+
+
+
+large_effsizes <- 
+  rbind(
+    get_effsizes(a11=1, a21=1, a12=-1, a22=1, alpha= alpha_large, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=1, a21=1, a12=-1, a22=-1, alpha= alpha_large, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=1, a21=-1, a12=-1, a22=1, alpha= alpha_large, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff),
+    get_effsizes(a11=-1, a21=-1, a12=-1, a22=1, alpha= alpha_large, 
+                 psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Z, sigma=sigma, cutoff))
+
+
+
+
+methodnames <- c("exch_lucy",
+                 "exch_plugin",
+                 "unstr_plugin",
+                 "mm")
+
+onesimrun <- function(f_sl){
+  dd <- f_sl()
+  d_aw <- data.frame(get_aug_weight(dd))
+  d_2a <- data.frame(get_2aug(dd))
+  fit_exch_lucy <- geeglm_smart_exch(d_aw, ff_fixef)
+  fit_exch_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='exchangeable')
+  fit_unstr_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='unstructured_a1a2')
+  fitmer <- fit_smart_lmer(d_2a, d_aw, ff_lmer_slopes, ff_fixef, ff_Z)
+  
+  ## betahat
+  coefmat <- 
+    rbind(fit_exch_lucy$b,
+        fit_exch_plugin$b,
+        fit_unstr_plugin$b,
+        fitmer$b)
+  
+  semat <- rbind(
+    fit_exch_lucy$se,
+    sqrt(diag(fit_exch_plugin$vcov)),
+    sqrt(diag(fit_unstr_plugin$vcov)),
+    sqrt(diag(fitmer$vcov)))
+  
+  ## V estimates
+  Vhat_mm <- get_Vhat_lmer(fitmer, tvec, ff_Z)
+  avg_V_unstr <- matrix(0,nrow=nrow(Vi),ncol=ncol(Vi))
+  for (cregime in regimenames){
+    avg_V_unstr <- avg_V_unstr + fit_unstr_plugin$Vhat_a1a2[[cregime]]
+  }
+  avg_V_unstr <- (1/length(regimenames)) * avg_V_unstr
+  vnorms <-
+    c(norm(fit_exch_lucy$Vhat - Vi, type='F'),
+      norm(fit_exch_plugin$Vhat_a1a2[[1]] - Vi, type='F'),
+      norm(avg_V_unstr - Vi, type='F'),  norm(Vhat_mm - Vi,type='F'))
+  
+  return(list(
+    bhat=coefmat,
+    se=semat,
+    vnorms=vnorms,
+    method=methodnames
+  ))
+}
+
+simparm <- list(nsim=nsim,
+                N=N,G=G, Vi=Vi, tvec=tvec,knot=knot,sigma=sigma,ff_lmer_slopes=ff_lmer_slopes,ff_fixef=ff_fixef,
+                X=X, theta=theta,psi=psi,cutoff=cutoff,ff_Z=ff_Z,myseed=myseed,
+                mycores=mycores,truecoefs=truecoefs,pinr_a1=pinr_a1,mmean=mmean,vardat=vardat)
+
+f_sl_small <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_small, 
+                         theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
+res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
+save(alpha_small, small_effsizes, res_small, simparm,
+     file= paste("smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
+rm(res_small)
+
+f_sl_med <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_med,
+                       theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
+res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
+save(alpha_med, med_effsizes, res_med, simparm,
+     file= paste("medeffect-N",N,"-nsim",nsim,".RData", sep=''))
+rm(res_med)
+
+
+f_sl_large <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_large,
+                         theta, psi, cutoff, ff_Z=ff_Z, return_po = FALSE)
+res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
+save(alpha_large, large_effsizes, res_large, simparm,
+     file= paste("largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
+rm(res_large)
