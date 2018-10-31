@@ -324,7 +324,7 @@ datfunc_mm <- function(N, G, tvec, knot, sigma, X, alpha, theta, psi, cutoff,
     Ra1_uniqdat <- dat_obs[dat_obs[,'time']==0 & dat_obs[,'a2']==1,]
     
     A2 <- ifelse(Ra1_uniqdat[,'Ra1']==1, NA,
-                 2 * rbinom(n=1, size=1, prob=pr_a2) -1 )
+                 2 * rbinom(n=N, size=1, prob=pr_a2) -1 )
     dat_obs <- cbind(dat_obs, A2 = A2[dat_obs[,'id']],
                      A2filter = ifelse(is.na(A2[dat_obs[,'id']]), 1,
                                        A2[dat_obs[,'id']]))
