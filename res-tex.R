@@ -1,4 +1,5 @@
 library(tidyverse)
+library(stargazer)
 load('res-fmt.RData')
 
 fmtnumbers <- function(x){
@@ -28,7 +29,7 @@ for (cursim in simnames){
          bind_rows(sumtable_byN, .id='n') %>% mutate(n=as.numeric(n)))
 }
 
-dispcoefs <- c('contrast_estimate', 'beta2')
+dispcoefs <- c('contrast_estimate', 'beta2', 'beta5','beta6')
 methodkey <-
   c('exch_lucy' = 'geeglm exchangeable',
     'exch_plugin' = 'Plug-in exchangeable',
@@ -48,9 +49,9 @@ for (cursim in simnames){
     mutate(n = as.numeric(n),
            effsize = factor(effsize, levels=c('small','med','large'),
                             labels=c('Effect size: small','medium','large'))) %>%
-    dplyr::select(-nna, -nsim, -mest, -truth) %>%
+    dplyr::select(-nna, -nsim, -truth) %>%
     filter(coef %in% dispcoefs) %>%
-    gather(bias, sdest, rmse, cprob, vnormsq, key='measure', value='val') %>%
+    gather(mest, bias, sdest, rmse, cprob, vnormsq, key='measure', value='val') %>%
     mutate(val = fmtnumbers(val), method_eff=interaction(effsize, method)) %>% dplyr::select(-method,-effsize)%>%
     spread(method_eff, val) %>%
     arrange(n,coef,measure) -> simtable
@@ -66,15 +67,15 @@ close(rawFile)
 filter(sim1_summary, coef =='beta2',method!='unstr_plugin') %>%
   mutate(n = as.numeric(n))%>%
   #filter(n>1000)%>%
-  ggplot(aes(x=log(vnormsq), y=rmse, color=as.factor(n))) + 
+  ggplot(aes(x=vnormsq, y=rmse, color=as.factor(n))) + 
 #  geom_text(aes(label=method)) +
   geom_point(aes(shape=method))+
   facet_wrap(~effsize+n,scales='free')
 
-
-sim2_summary %>% filter(coef %in% dispcoefs) %>%
-  filter(n > 100) %>%
-  ggplot(aes(x=method, y=mest,color=as.factor(n))) +
-  geom_pointrange(aes(x=method, y=mest, ymin=mest - 2 * sdest, ymax = mest + 2 * sdest),position = position_jitter(width=0.2)) + 
-  geom_hline(aes(yintercept=truth)) + 
-  facet_wrap(~effsize+coef, scales='free')
+filter(sim2_summary, coef =='beta2',method!='unstr_plugin') %>%
+  mutate(n = as.numeric(n))%>%
+  #filter(n>1000)%>%
+  ggplot(aes(x=vnormsq, y=rmse, color=as.factor(n))) + 
+  #  geom_text(aes(label=method)) +
+  geom_point(aes(shape=method))+
+  facet_wrap(~effsize+n,scales='free')

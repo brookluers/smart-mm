@@ -204,7 +204,7 @@ geeglm_smart_exch <- function(dat_aug_weight, ff_gee){
   sfgee <- summary(fgee)
   a1 <- setNames(sfgee$geese$corr$estimate,
                  rownames(sfgee$geese$corr))
-  ni <- length(tvec)
+  ni <- length(unique(dat_aug_weight$time))
   Vhat1 <- matrix(0, nrow=ni, ncol=ni)
   phihat1 <- summary(fgee)$geese$scale$estimate
   if (length(a1) > 0){
@@ -236,7 +236,7 @@ geeglm_smart_indep <- function(dat_aug_weight, ff_gee){
   sfgee <- summary(fgee)
   a1 <- setNames(sfgee$geese$corr$estimate,
                  rownames(sfgee$geese$corr))
-  ni <- length(tvec)
+  ni <- length(unique(dat_aug_weight$time))
   Vhat1 <- matrix(0, nrow=ni, ncol=ni)
   phihat1 <- summary(fgee)$geese$scale$estimate
   if (length(a1) > 0){
