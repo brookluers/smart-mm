@@ -8,10 +8,15 @@ N <- as.numeric(args[1])
 nsim <- as.numeric(args[2])
 myseed <- as.numeric(args[3])
 mycores <- args[4]
+doEffsize <- args[5]
 
 set.seed(myseed)
 cat("\nN = "); cat(N)
 cat("\nnsim = "); cat(nsim)
+cat("\neffect size = "); cat(doEffsize)
+if (is.na(doEffsize)) {
+   doEffsize <- 'all'
+}
 cat("\nseed = "); cat(myseed)
 cat("\ndesired cores = "); cat(mycores);
 cat("\ndetectCores() = "); cat(detectCores())
@@ -285,22 +290,47 @@ simparm <- list(nsim=nsim,
 
 f_sl_small <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_small, 
                          theta, psi, cutoff, ff_Z=ff_Zgen, return_po = FALSE)
-res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
-save(alpha_small, small_effsizes, truecoefs_small, res_small, simparm,
-     file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
-rm(res_small)
+
 
 f_sl_med <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_med,
                        theta, psi, cutoff, ff_Z=ff_Zgen, return_po = FALSE)
-res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
-save(alpha_med, med_effsizes, truecoefs_med, res_med, simparm,
-     file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
-rm(res_med)
+
 
 
 f_sl_large <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_large,
                          theta, psi, cutoff, ff_Z=ff_Zgen, return_po = FALSE)
-res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
-save(alpha_large, large_effsizes, truecoefs_large, res_large, simparm,
+
+
+
+if (doEffsize == 'small') {
+    cat('\n\nsaving results for small effect size\n')
+    res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
+    save(alpha_small, small_effsizes, truecoefs_small, res_small, simparm,
+     file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
+    rm(res_small)
+} else if (doEffsize == 'med') {
+    cat('\n\nsaving results for medium effect size\n')
+    res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
+    save(alpha_med, med_effsizes, truecoefs_med, res_med, simparm,
+     file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
+
+} else if (doEffsize == 'large') {
+    cat('\n\nsaving results for large effect size\n')
+    res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
+    save(alpha_large, large_effsizes, truecoefs_large, res_large, simparm,
      file= paste("sim1-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
-rm(res_large)
+
+} else {
+    cat('\nsaving results for small, medium, and large effect sizes\n')
+    res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small)))
+    save(alpha_small, small_effsizes, truecoefs_small, res_small, simparm,
+     file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
+    rm(res_small)
+    res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med)))
+    save(alpha_med, med_effsizes, truecoefs_med, res_med, simparm,
+     file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
+    rm(res_med)
+    res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large)))
+    save(alpha_large, large_effsizes, truecoefs_large, res_large, simparm,
+     file= paste("sim1-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
+}
