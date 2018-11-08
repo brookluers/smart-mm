@@ -20,55 +20,27 @@ get_cutoff <- function(alpha, knot, a1, G, ff_Z, sigma, pinr) {
   v <- as.numeric(zknotT %*% G %*% t(zknotT) + sigma^2)
   return(qnorm(pinr, mean=mu, sd=sqrt(v)))
 }
-# 
-# get_cutoff <- function(alpha, knot, a1, G, sigma, pinr){
-#   mu <- alpha[1] + knot * alpha[2] + knot * alpha[3] * a1
-#   zt <- c(1, knot)
-#   v <- t(zt) %*% G %*% zt
-#   return(qnorm(pinr, mean=mu, sd=sqrt(v)))
-# }
 
-get_margvar <- function(tval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff) {
-  return(get_margcov(tval, tval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff))
+get_margvar <- function(tval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff, fn_tscov = NULL) {
+  return(get_margcov(tval, tval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff, fn_tscov))
 }
 
-###
-# get_margvar <- function(tval, alpha, psi, knot, a1, a2, G, sigma, cutoff){
-#   require(tmvtnorm)
-#   pinr <- get_pinr(alpha, knot, a1, G, sigma, cutoff)
-#   if (tval <= knot){
-#     return(G[1,1] + 2 * tval * G[1,2] + tval^2 * G[2,2] + sigma^2)
-#   } else{
-#     WWvar <- 
-#       matrix(c(
-#         G[1,1] + 2 * tval * G[1,2] + tval^2 * G[2,2] + sigma^2,
-#         G[1,1] + knot * G[1,2] + tval * G[1,2] + tval * knot * G[2,2],
-#         G[1,1] + knot * G[1,2] + tval * G[1,2] + tval * knot * G[2,2],
-#         G[1,1] + 2 * knot * G[1,2] + knot^2 * G[2,2] + sigma^2),
-#         nrow=2,byrow=T)
-#     C1 <- (tval - knot) * alpha[6] * a2
-#     C2 <- (tval - knot) * alpha[7] * a1 * a2
-#     C3 <- (tval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
-#     
-#     eW1W2big <- 
-#       mtmvnorm(mean = c(0, 0),
-#                sigma = WWvar,
-#                lower = c(-Inf, cutoff - alpha[1] - knot * (alpha[2] + alpha[3] * a1)),
-#                upper = c(Inf, Inf))$tmean[1]
-#     return(
-#       G[1,1] + tval^2 * G[2,2] + 2 * tval * G[1,2] + sigma^2 +
-#         (C1 + C2 - C3)^2 * pinr * (1 - pinr) -
-#         2 * (C1 + C2 - C3) * (1 - pinr) * eW1W2big
-#     )
-#       
-#   }
-# }
-###
 
-get_margcov <- function(tval, sval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff) {
+get_margcov <- function(tval, sval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cutoff,
+                        fn_tscov = NULL) {
   pinr <- get_pinr(alpha, knot, a1, G, ff_Z, sigma, cutoff)
   ztT <- model.matrix(ff_Z, data.frame(Y=-99,time=tval))
   zsT <- model.matrix(ff_Z, data.frame(Y=-99,time=sval))
+  
+  if (!is.null(fn_tscov)){ #  cov(epsilon_t, epsilon_s) is nonzero
+    cov_eps_ts <- fn_tscov(tval, sval)
+    cov_eps_tknot <- fn_tscov(tval, knot)
+    cov_eps_sknot <- fn_tscov(sval, knot)
+  } else { # epsilon_t is independent of epsilon_s
+    cov_eps_ts <- 1 * (sval == tval) * sigma^2
+    cov_eps_tknot <- 0
+    cov_eps_sknot <- 0
+  }
   
   Ct1 <- 1 * (tval > knot) * (tval - knot) * alpha[6] * a2
   Ct2 <- 1 * (tval > knot ) * (tval - knot) * alpha[7] * a1 * a2
@@ -77,43 +49,40 @@ get_margcov <- function(tval, sval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cu
   Cs2 <- 1 * (sval > knot ) * (sval - knot) * alpha[7] * a1 * a2
   Cs3 <- 1 * (sval > knot ) * (sval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
   
-  Wtmean_R1 <- tmoments_WtWknot(tval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE)$tmean[1]
-  Wsmean_R1 <- tmoments_WtWknot(sval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE)$tmean[1]
+  Wtmean_R1 <- tmoments_WtWknot(tval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE,cov_eps_tknot)$tmean[1]
+  Wsmean_R1 <- tmoments_WtWknot(sval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE,cov_eps_sknot)$tmean[1]
   
   cov_WtR <-  (1 - pinr) * Wtmean_R1
   cov_WsR <-  (1 - pinr) * Wsmean_R1
   
-  return( ztT %*% G %*% t(zsT) + 1* (sval==tval) * sigma^2 -
+  return( ztT %*% G %*% t(zsT) +  cov_eps_ts -    #1* (sval==tval) * sigma^2 -
             (Cs1 + Cs2 - Cs3) * cov_WtR -
             (Ct1 + Ct2 - Ct3) * cov_WsR +
             (Cs1 + Cs2 - Cs3) * (Ct1 + Ct2 - Ct3) * pinr * (1 - pinr)
   )
 }
 
-get_margcov_old <- function(tval, sval, alpha, theta, psi, knot, Xval, a1, a2, G, sigma, cutoff) {
-  pinr <- get_pinr_old(alpha, knot, a1, G, sigma, cutoff)
-  Ct1 <- 1 * (tval > knot) * (tval - knot) * alpha[6] * a2
-  Ct2 <- 1 * (tval > knot ) * (tval - knot) * alpha[7] * a1 * a2
-  Ct3 <- 1 * (tval > knot ) * (tval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
-  Cs1 <- 1 * (sval > knot) * (sval - knot) * alpha[6] * a2
-  Cs2 <- 1 * (sval > knot ) * (sval - knot) * alpha[7] * a1 * a2
-  Cs3 <- 1 * (sval > knot ) * (sval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
-
-  Wtmean_R1 <- tmoments_WtWknot_old(tval,alpha,knot,a1,a2,G,sigma,cutoff,Req1=TRUE)$tmean[1]
-  Wsmean_R1 <- tmoments_WtWknot_old(sval,alpha,knot,a1,a2,G,sigma,cutoff,Req1=TRUE)$tmean[1]
-
-  cov_WtR <-  (1 - pinr) * Wtmean_R1
-  cov_WsR <-  (1 - pinr) * Wsmean_R1
-
-  return(
-    G[1,1] + (tval + sval) * G[1,2] + tval*sval * G[2,2]  + 1 * (sval == tval) * sigma^2 -
-      (Cs1 + Cs2 - Cs3) * cov_WtR -
-      (Ct1 + Ct2 - Ct3) * cov_WsR +
-      (Cs1 + Cs2 - Cs3) * (Ct1 + Ct2 - Ct3) * pinr * (1 - pinr)
-  )
+get_Sigma_eps <- function(tvec, fn_tscov, sigma){
+  ni <- length(tvec)
+  if (is.null(fn_tscov)){
+    return(sigma^2 * diag(ni))
+  } else{
+    Sigma_eps <- matrix(0, nrow=ni, ncol=ni)
+    Sigma_eps <-
+      matrix(
+        mapply(t_ix = row(Sigma_eps), s_ix = col(Sigma_eps),
+               FUN = function(t_ix, s_ix){
+                 fn_tscov(tvec[t_ix], tvec[s_ix])
+               }),
+        nrow = ni, byrow = T
+      )
+    return(Sigma_eps)
+  }
+  
 }
 
-get_vcovmat <- function(a1, a2, tvec, alpha, theta, psi, knot, G, ff_Z, sigma, cutoff) {
+get_vcovmat <- function(a1, a2, tvec, alpha, theta, psi, knot, G, ff_Z, sigma, cutoff,
+                        fn_tscov = NULL) {
   ni <- length(tvec)
   a1 <-1; a2 <- 1
   SigmaTrueX1 <- matrix(0, nrow=ni, ncol=ni)
@@ -123,7 +92,7 @@ get_vcovmat <- function(a1, a2, tvec, alpha, theta, psi, knot, G, ff_Z, sigma, c
                   FUN = function(t_ix, s_ix) {
                     cij <- get_margcov(tval=tvec[t_ix], sval=tvec[s_ix],
                                        alpha,psi,knot,a1,a2,
-                                       G,ff_Z, sigma,cutoff)
+                                       G,ff_Z, sigma,cutoff, fn_tscov)
                     return(
                       cij
                     )
@@ -132,55 +101,46 @@ get_vcovmat <- function(a1, a2, tvec, alpha, theta, psi, knot, G, ff_Z, sigma, c
   return(SigmaTrueX1)
 }
 
-tmoments_WtWknot <- function(tval, alpha, knot, a1, a2, G, ff_Z, sigma, cutoff, Req1=TRUE){
+tmoments_WtWknot <- function(tval, alpha, knot, a1, a2, G, ff_Z, sigma, cutoff, Req1=TRUE,
+                             cov_eps_tknot = 0){
   require(tmvtnorm)
+  require(truncnorm)
   ZtT <- model.matrix(ff_Z, data.frame(Y = -99, time=tval))
   ZknotT <- model.matrix(ff_Z, data.frame(Y=-99, time=knot))
-  
-  WWvar <- 
-    matrix(
-      c(ZtT %*% G %*% t(ZtT) + sigma^2, ZknotT %*% G %*% t(ZtT),
-        ZknotT %*% G %*% t(ZtT), ZknotT %*% G %*% t(ZknotT) + sigma^2),
-      nrow=2,byrow=T)
-  
-  if (Req1){
-    lower <- c(-Inf, cutoff - alpha[1] - knot * (alpha[2] + alpha[3] * a1))
-    upper <- c(Inf, Inf)
-  } else{
-    lower <- c(-Inf, -Inf)
-    upper <- c(Inf, cutoff - alpha[1] - knot*(alpha[2] + alpha[3] * a1))
+  Wtvar <- as.numeric(ZtT %*% G %*% t(ZtT) + sigma^2)
+  Wknotvar <- as.numeric(ZknotT %*% G %*% t(ZknotT) + sigma^2)
+  Q <- cutoff - alpha[1] - knot * (alpha[2] + alpha[3] * a1)
+  if (tval != knot) {
+    WWvar <- 
+      matrix(
+        c(Wtvar, ZknotT %*% G %*% t(ZtT) + cov_eps_tknot,
+          ZknotT %*% G %*% t(ZtT) + cov_eps_tknot, Wknotvar),
+        nrow=2,byrow=T)
+    if (Req1){ # W_t | W_knot > Q
+      lower <- c(-Inf, Q)
+      upper <- c(Inf, Inf)
+    } else{  # W_t | W_knot < Q
+      lower <- c(-Inf, -Inf)
+      upper <- c(Inf, Q)
+    }
+    
+  } else { # tval == knot
+    WWvar <-
+      Wtvar * diag(2)
+    if (Req1){ # W_knot | W_knot > Q
+      lower <- c(Q, Q)
+      upper <- c(Inf, Inf)
+    } else{ # W_knot | W_knot < Q
+      lower <- c(-Inf, -Inf)
+      upper <- c(Q, Q)
+    }
   }
-  tmoments <- 
-    mtmvnorm(mean = c(0, 0),
-             sigma = WWvar,
-             lower = lower,
-             upper = upper)
-  return(tmoments)
-  
-}
-
-tmoments_WtWknot_old <- function(tval, alpha, knot, a1, a2, G, sigma, cutoff, Req1 = TRUE) {
-  require(tmvtnorm)
-  WWvar <-
-    matrix(c(
-      G[1,1] + 2 * tval * G[1,2] + tval^2 * G[2,2] + sigma^2,
-      G[1,1] + knot * G[1,2] + tval * G[1,2] + tval * knot * G[2,2],
-      G[1,1] + knot * G[1,2] + tval * G[1,2] + tval * knot * G[2,2],
-      G[1,1] + 2 * knot * G[1,2] + knot^2 * G[2,2] + sigma^2),
-      nrow=2,byrow=T)
-  if (Req1){
-    lower <- c(-Inf, cutoff - alpha[1] - knot * (alpha[2] + alpha[3] * a1))
-    upper <- c(Inf, Inf)
-  } else{
-    lower <- c(-Inf, -Inf)
-    upper <- c(Inf, cutoff - alpha[1] - knot*(alpha[2] + alpha[3] * a1))
-  }
-  tmoments <-
-    mtmvnorm(mean = c(0, 0),
-             sigma = WWvar,
-             lower = lower,
-             upper = upper)
-  return(tmoments)
+    tmoments <- 
+      mtmvnorm(mean = c(0, 0),
+               sigma = WWvar,
+               lower = lower,
+               upper = upper)
+    return(tmoments)
 }
 
 get_mmean <- function(alpha, X, theta, knot, tvec, a1, a2, G, ff_Z, sigma, cutoff) {
@@ -211,20 +171,21 @@ get_truecoefs <- function(alpha, theta, knot, G, ff_Z, sigma, cutoff) {
   return(ret)
 }
 
-get_effsizes <- function(a11, a21, a12, a22, alpha, psi, X, theta, knot, tvec, G, ff_Z, sigma, cutoff){
+get_effsizes <- function(a11, a21, a12, a22, alpha, psi, X, theta, knot, tvec, G, ff_Z, sigma, cutoff,
+                         fn_tscov = NULL){
   means_regime1 <- get_mmean(alpha, X, theta, knot, tvec, a11, a21, G, ff_Z, sigma, cutoff)
   means_regime2 <- get_mmean(alpha, X, theta, knot, tvec, a12, a22, G, ff_Z, sigma, cutoff)
   var_regime1 <- 
     mapply(a1 = means_regime1[,'a1'], a2 = means_regime1[,'a2'],
          tval = means_regime1[,'time'],
          FUN = function(a1, a2, tval){
-           return(get_margvar(tval=tval, alpha, psi, knot, a1=a1, a2=a2, G, ff_Z, sigma, cutoff))
+           return(get_margvar(tval=tval, alpha, psi, knot, a1=a1, a2=a2, G, ff_Z, sigma, cutoff, fn_tscov))
          })
   var_regime2 <- 
     mapply(a1 = means_regime2[,'a1'], a2 = means_regime2[,'a2'],
            tval = means_regime2[,'time'],
            FUN = function(a1, a2, tval){
-             return(get_margvar(tval=tval, alpha, psi, knot, a1=a1, a2=a2, G, ff_Z, sigma, cutoff))
+             return(get_margvar(tval=tval, alpha, psi, knot, a1=a1, a2=a2, G, ff_Z, sigma, cutoff, fn_tscov))
            })
   
     return(
@@ -243,7 +204,8 @@ get_effsizes <- function(a11, a21, a12, a22, alpha, psi, X, theta, knot, tvec, G
 # psi: vector of 2 coefficients, for main effect of R(a1) in second stage
 #    (psi1 * indic(a1=1) + psi(-1) * indic(a1=-1)) * (R(a1) - Pr(R(a1)=1))
 datfunc_mm <- function(N, G, tvec, knot, sigma, X, alpha, theta, psi, cutoff,
-                               ff_Z, pr_a1 = 0.5, pr_a2 = 0.5, return_po = FALSE) {
+                               ff_Z, pr_a1 = 0.5, pr_a2 = 0.5, return_po = FALSE, Sigma_epsilon = NULL) {
+  require(MASS)
   ni <- length(tvec)
   Nni <- N * ni
   IDs <- rep(1:N, each=ni)
@@ -260,11 +222,19 @@ datfunc_mm <- function(N, G, tvec, knot, sigma, X, alpha, theta, psi, cutoff,
   tlong <- rep(tvec, N)
   regimemat <- as.matrix(expand.grid(id=IDs, a1=c(1,-1), a2=c(1,-1)))
   Zlong <- model.matrix(ff_Z, data.frame(cbind(time=tlong,regimemat,Y=-99)))
+  if (is.null(Sigma_epsilon)){
+    Sigma_epsilon <- diag(ni)
+  } else if (nrow(Sigma_epsilon) != ni | ncol(Sigma_epsilon) != ni){
+    stop("Sigma_epsilon has incorrect dimensions")
+  }
   f <- function(){
     #####
     ## Generate the potential outcomes
     #####
-    true_resid <- rnorm(n=Nni, mean=0, sd=sigma)
+    # true_resid <- rnorm(n=Nni, mean=0, sd=sigma)
+    true_resid <- as.numeric(
+      t(mvrnorm(n=N, mu=rep(0, ni), Sigma=Sigma_epsilon))
+    )
     gamma_n <- mvrnorm(n=N, mu=rep(0, dim_raneff), Sigma=G)
     gamma_rep <- gamma_n[regimemat[,'id'],,drop=FALSE]
     ranef_realized <- 
