@@ -44,10 +44,10 @@ get_margcov <- function(tval, sval, alpha, psi, knot, a1, a2, G, ff_Z, sigma, cu
   
   Ct1 <- 1 * (tval > knot) * (tval - knot) * alpha[6] * a2
   Ct2 <- 1 * (tval > knot ) * (tval - knot) * alpha[7] * a1 * a2
-  Ct3 <- 1 * (tval > knot ) * (tval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
+  Ct3 <- 1 * (tval > knot ) * (tval - knot) * ( 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1'] ) 
   Cs1 <- 1 * (sval > knot) * (sval - knot) * alpha[6] * a2
   Cs2 <- 1 * (sval > knot ) * (sval - knot) * alpha[7] * a1 * a2
-  Cs3 <- 1 * (sval > knot ) * (sval - knot) * 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1']
+  Cs3 <- 1 * (sval > knot ) * (sval - knot) * ( 1 * (a1==1) * psi['1'] + 1 * (a1==-1) * psi['-1'] ) 
   
   Wtmean_R1 <- tmoments_WtWknot(tval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE,cov_eps_tknot)$tmean[1]
   Wsmean_R1 <- tmoments_WtWknot(sval,alpha,knot,a1,a2,G,ff_Z,sigma,cutoff,Req1=TRUE,cov_eps_sknot)$tmean[1]

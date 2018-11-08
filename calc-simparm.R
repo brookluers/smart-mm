@@ -1,3 +1,6 @@
+allregime <- expand.grid(a1=a1s,a2=a2s)
+regimenames <- as.character(with(allregime,interaction(a1,a2)))
+coefnames <- c(paste('beta', 0:6,sep=''), 'eta')
 
 X <- vector('numeric', length=N)
 X[1:floor(N/2)] <- 1
@@ -21,7 +24,8 @@ Vtruelist <-
                                  cij <- get_margcov(tval=tvec[t_ix], sval=tvec[s_ix],
                                                     alpha=get(paste('alpha_', effsize, sep='')), 
                                                     psi=psi, knot=knot, a1=a1, a2=a2,
-                                                    G=G, ff_Z=ff_Zgen, sigma=sigma,cutoff=cutoff)
+                                                    G=G, ff_Z=ff_Zgen, sigma=sigma,cutoff=cutoff,
+                                                    fn_tscov = covfunc_epsilon)
                                  return(
                                    cij
                                  )
@@ -35,7 +39,6 @@ Vtruelist <-
   })
 names(Vtruelist) <- c('small','med','large')
 
-# (Vi <- Zi %*% G %*% t(Zi) + sigma^2 * diag(length(tvec)))
 mmean <- get_mmean(alpha_small, unique(X), theta, knot, tvec, a1=c(1,-1), a2=c(1,-1), G,ff_Zgen, sigma, cutoff)
 cat("\nTrue regression coefficients, small effect size: \n")
 (truecoefs_small <- get_truecoefs(alpha_small, theta, knot, G, ff_Zgen, sigma, cutoff))

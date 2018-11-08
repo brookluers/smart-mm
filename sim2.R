@@ -31,21 +31,17 @@ source("fit.R")
 source("fitplugin.R")
 a1s <- c(1,-1)
 a2s <- c(1,-1)
-allregime <- expand.grid(a1=a1s,a2=a2s)
-regimenames <- as.character(with(allregime,interaction(a1,a2)))
-alpha_small <- c(1, 0.1, 0.027, 0.15, 0.08, 0.03, -0.09)
-alpha_med <- c(1, 0.1, 0.128, 0.15, 0.08, 0.03, -0.09)
-alpha_large <- c(1, 0.1, 0.229, 0.15, 0.08, 0.03, -0.09)
-psi <- c('1'= 0.04, '-1' = -0.04)
-theta <- -0.08
-coefnames <- c(paste('beta', 0:6,sep=''), 'eta')
+alpha_small <- c(1, 0.1, 0.057, 0.15, 0.08, 0.25, -0.27)
+alpha_med <- c(1, 0.1, 0.285, 0.15, 0.08, 0.25, -0.27)
+alpha_large <- c(1, 0.1, 0.512, 0.15, 0.08, 0.25, -0.27)
+psi <- c('1'= 0.1, '-1' = -0.1)
+theta <- -0.2
 tvec <- c(0, 0.5, 1.5, 2, 2.25, 2.5, 3)
 knot <- tvec[4]
 sigma <- 1
 cutoff <- 1.1
 ff_Zgen <- Y ~ 1 + time
-
-G <- matrix(c(0.2,-0.05,-0.05, 0.1),
+G <- matrix(c(0.8, -0.2, -0.2, 1),
             nrow=2,byrow=T)
 covfunc_epsilon <- NULL
 

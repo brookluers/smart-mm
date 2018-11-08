@@ -42,25 +42,29 @@ source("fitplugin.R")
 # alpha <- c(1, 0.09, 0.1, 0.15, 0.08, 0, 0)
 a1s <- c(1,-1)
 a2s <- c(1,-1)
-allregime <- expand.grid(a1=a1s,a2=a2s)
-regimenames <- as.character(with(allregime,interaction(a1,a2)))
-alpha_small <- c(1, 0.1, 0.027, 0.15, 0.08, 0, 0)
-alpha_med <- c(1, 0.1, 0.128, 0.15, 0.08, 0, 0)
-alpha_large <- c(1, 0.1, 0.229, 0.15, 0.08, 0, 0)
+alpha_small <- c(1, 0.1, 0.11, 0.15, 0.08, 0, 0)
+alpha_med <- c(1, 0.1, 0.35, 0.15, 0.08, 0, 0)
+alpha_large <- c(1, 0.1, 0.58, 0.15, 0.08, 0, 0)
 psi <- c('1'=0, '-1' = 0)
 theta <- -0.08
-coefnames <- c(paste('beta', 0:6,sep=''), 'eta')
 tvec <- c(0, 0.5, 1.5, 2, 2.25, 2.5, 3)
 knot <- tvec[4]
 sigma <- 1
 cutoff <- 1.1
 ff_Zgen <- Y ~ 1 + time
-
-G <- matrix(c(0.2,-0.05,-0.05, 0.1),
+G <- matrix(c(0.8, -0.2, -0.2, 1),
             nrow=2,byrow=T)
 covfunc_epsilon <- NULL
 
 source("calc-simparm.R", print.eval=TRUE)
+small_effsizes
+med_effsizes
+large_effsizes
+cat("\nTrue variance-covariance for one individual, identical across regimes:\n")
+(Vi <- Zi %*% G %*% t(Zi) + sigma^2 * diag(length(tvec)))
+cat("\n")
+cat("...as a correlation matrix: \n")
+cov2cor(Vi)
 
 if (doEffsize == 'small') {
     cat('\n\nsaving results for small effect size\n')
