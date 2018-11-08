@@ -51,14 +51,17 @@ cat("\nProbability of nonresponder: \n")
 
 vardat <- expand.grid(tval=tvec,
                       a1=c(1,-1),
-                      a2=c(1,-1))
+                      a2=c(1,-1),
+                      effsize = c('small','med','large'))
 vardat$mvar <- 
   mapply(tval = vardat$tval,
          a1=vardat$a1,
          a2=vardat$a2,
-         FUN = function(tval, a1, a2) return(get_margvar(tval =tval, 
-                                                         alpha_small, psi, knot, 
-                                                         a1=a1, a2=a2, G, ff_Zgen, sigma,cutoff)))
+         effsize = vardat$effsize,
+         FUN = function(tval, a1, a2, effsize) return(get_margvar(tval =tval, 
+                                                         get(paste('alpha_',effsize,sep='')), 
+                                                         psi, knot, 
+                                                         a1=a1, a2=a2, G, ff_Zgen, sigma,cutoff,fn_tscov = covfunc_epsilon)))
 
 cat("Covariance of residual errors:\n")
 ( Sigma_epsilon <- get_Sigma_eps(tvec, fn_tscov = covfunc_epsilon, sigma=sigma) )
