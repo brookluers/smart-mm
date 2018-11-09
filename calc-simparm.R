@@ -167,7 +167,7 @@ large_effsizes <-
                  fn_tscov = covfunc_epsilon))
 
 
-methodnames <- c("exch_lucy",
+methodnames <- c(# "exch_lucy",
                  "indep_lucy",
                  "exch_plugin",
                  "unstr_plugin",
@@ -175,13 +175,21 @@ methodnames <- c("exch_lucy",
                  "mm_intercept",
                  "trueV")
 
-onesimrun <- function(f_sl, Vtrue_a1a2){
+onesimrun <- function(f_sl, Vtrue_a1a2, missFunc = NULL){
   vcomplist_a1a2_true <- lapply(Vtrue_a1a2, function(x) return(list(Vhat=x)))
   
   dd <- f_sl()
-  d_aw <- data.frame(get_aug_weight(dd))
-  d_2a <- data.frame(get_2aug(dd))
-  fit_exch_lucy <- geeglm_smart_exch(d_aw, ff_fixef)
+  if (!is.null(missFunc)){
+    dd <- missFunc(dd)
+    while( any(table(dd[,'id']) < 2 ) ){
+      dd <- f_sl()
+      dd <- missFunc(dd)
+    }
+  }
+  d_aw <- get_aug_weight(dd)
+  d_2a <- data.frame(get_2aug(d_aw))
+  d_aw <- data.frame(d_aw)
+  # fit_exch_lucy <- geeglm_smart_exch(d_aw, ff_fixef)
   fit_indep_lucy <- geeglm_smart_indep(d_aw, ff_fixef)
   fit_exch_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='exchangeable')
   fit_unstr_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='unstructured_a1a2')
@@ -191,7 +199,7 @@ onesimrun <- function(f_sl, Vtrue_a1a2){
   
   ## betahat
   coefmat <- 
-    rbind(fit_exch_lucy$b,
+    rbind(# fit_exch_lucy$b,
           fit_indep_lucy$b,
           fit_exch_plugin$b,
           fit_unstr_plugin$b,
@@ -199,7 +207,7 @@ onesimrun <- function(f_sl, Vtrue_a1a2){
           fit_mm_intercept$b,
           fit_trueV$b)
   
-  vlist_bhat <- setNames(list(fit_exch_lucy$vcov,
+  vlist_bhat <- setNames(list(# fit_exch_lucy$vcov,
                               fit_indep_lucy$vcov,
                               fit_exch_plugin$vcov,
                               fit_unstr_plugin$vcov,
@@ -222,8 +230,8 @@ onesimrun <- function(f_sl, Vtrue_a1a2){
   for (cregime in regimenames){
     avg_Vnorms['unstr_plugin'] <- avg_Vnorms['unstr_plugin'] + 
       (1 / length(regimenames)) * norm(fit_unstr_plugin$Vhat_a1a2[[cregime]] - Vtrue_a1a2[[cregime]],type='F')
-    avg_Vnorms['exch_lucy'] <- avg_Vnorms['exch_lucy'] + 
-      (1 / length(regimenames)) * norm(fit_exch_lucy$Vhat - Vtrue_a1a2[[cregime]], type='F')
+   # avg_Vnorms['exch_lucy'] <- avg_Vnorms['exch_lucy'] + 
+      #(1 / length(regimenames)) * norm(fit_exch_lucy$Vhat - Vtrue_a1a2[[cregime]], type='F')
     avg_Vnorms['indep_lucy'] <- avg_Vnorms['indep_lucy'] + 
       (1 / length(regimenames)) * norm(fit_indep_lucy$Vhat - Vtrue_a1a2[[cregime]], type='F')
     avg_Vnorms['mm_slopes'] <- avg_Vnorms['mm_slopes'] + 
@@ -236,7 +244,7 @@ onesimrun <- function(f_sl, Vtrue_a1a2){
   }
   ## Vhat
   vhatmat <- 
-    rbind(as.numeric(fit_exch_lucy$Vhat),
+    rbind(#as.numeric(fit_exch_lucy$Vhat),
           as.numeric(fit_indep_lucy$Vhat),
           as.numeric(fit_exch_plugin$Vhat_a1a2[[1]]),
           as.numeric(avg_V_unstr),
@@ -258,7 +266,12 @@ simparm <- list(nsim=nsim,
                 X=X, theta=theta,psi=psi,cutoff=cutoff,ff_Zgen=ff_Zgen,myseed=myseed,
                 mycores=mycores,pinr_a1=pinr_a1,mmean=mmean,vardat=vardat,
                 covfunc_epsilon=covfunc_epsilon, Sigma_epsilon=Sigma_epsilon)
-
+if (exists('missprob')){
+  simparm <- c(simparm, missprob=missprob)
+}
+if (exists('missFunc')){
+  simparm <- c(simparm, missFunc=missFunc)
+}
 f_sl_small <- datfunc_mm(N, G, tvec, knot, sigma, X, alpha_small, 
                          theta, psi, cutoff, ff_Z=ff_Zgen, return_po = FALSE,
                          Sigma_epsilon)

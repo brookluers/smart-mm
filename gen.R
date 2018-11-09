@@ -327,45 +327,33 @@ datfunc_mm <- function(N, G, tvec, knot, sigma, X, alpha, theta, psi, cutoff,
 get_aug_weight <- function(dobs, pr_a1= 0.5, pr_a2 = 0.5){
   d0 <- dobs[dobs[,'R']==0,]
   d1 <- dobs[dobs[,'R']==1,]
+  ni0 <- table(d0[,'id'])
+  ni1 <- table(d1[,'id'])
   N0 <- length(unique(d0[,'id']))
   N1 <- length(unique(d1[,'id']))
   M <- N0 + N1 + N1
   d0 <- cbind(d0, W=(1 / (pr_a1 * pr_a2)))
   d1 <- cbind(d1, W=(1 / pr_a1))
-  ni <- length(unique(d0[,'time']))
-  d0 <- cbind(d0, waves = rep(1:ni, N0))
+  # ni <- length(unique(d0[,'time']))
+  # d0 <- cbind(d0, waves = rep(1:ni, N0))
+  d0 <- cbind(d0, waves = do.call('c', sapply(ni0, function(ni) return(1:ni))))
   d1a <- d1
   d1b <- d1
   d1a[,'A2'] <- 1
   d1b[,'A2'] <- -1
-  d1b <- cbind(d1b, waves=rep((ni+1):(ni*2), N1))
-  d1a <- cbind(d1a, waves=rep(1:ni, N1))
+  waves1a <- do.call('c',sapply(ni1,function(ni) return(1:ni)))
+  d1b <- cbind(d1b, waves=waves1a + rep(ni1, times=ni1))
+  d1a <- cbind(d1a, waves=waves1a)
   daw <- rbind(d0, d1a, d1b)
   daw <- daw[order(daw[,'id'],daw[,'waves']),]
-  daw <- cbind(daw, idrep = rep(1:M, each=ni))
+  tdiff <- diff(daw[,'time'])
+  wdiff <- diff(daw[,'waves'])
+  changetimes <- which(tdiff < 0 | wdiff < 0 )
+  daw <- cbind(daw, idrep = rep(1:M, times = diff( c(0, changetimes, nrow(daw)))))
   return(daw)
 }
 
-get_2aug <- function(dobs, pr_a1=0.5, pr_a2=0.5){
-  d0 <- dobs[dobs[,'R']==0,]
-  d1 <- dobs[dobs[,'R']==1,]
-  N0 <- length(unique(d0[,'id']))
-  N1 <- length(unique(d1[,'id']))
-  M <- N0 + N1 + N1
-  d0 <- cbind(d0, W=4)
-  d1 <- cbind(d1, W=2)
-  ni <- length(unique(d0[,'time']))
-  d0 <- cbind(d0, waves = rep(1:ni, N0))
-  d1a <- d1
-  d1b <- d1
-  d1a[,'A2'] <- 1
-  d1b[,'A2'] <- -1
-  d1b <- cbind(d1b, waves=rep((ni+1):(ni*2), N1))
-  d1a <- cbind(d1a, waves=rep(1:ni, N1))
-  daw <- rbind(d0, d1a, d1b)
-  daw <- daw[order(daw[,'id'],daw[,'waves']),]
-  daw <- cbind(daw, idrep = rep(1:M, each=ni))
-  
+get_2aug <- function(daw, pr_a1=0.5, pr_a2=0.5){
   daw2 <- daw[rep(1:nrow(daw), times= daw[,'W']),]
   daw2 <- cbind(daw2, 
                 incr = do.call('c',sapply(daw[,'W'],function(ww) return(seq(0, (ww-1) * (1/ww), 1/ww)))))
