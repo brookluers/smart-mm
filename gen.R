@@ -336,7 +336,7 @@ get_aug_weight <- function(dobs, pr_a1= 0.5, pr_a2 = 0.5){
   d1 <- cbind(d1, W=(1 / pr_a1))
   # ni <- length(unique(d0[,'time']))
   # d0 <- cbind(d0, waves = rep(1:ni, N0))
-  d0 <- cbind(d0, waves = do.call('c', sapply(ni0, function(ni) return(1:ni))))
+  d0 <- cbind(d0, waves = do.call('c', sapply(ni0, function(ni) return(1:ni), simplify = FALSE)))
   d1a <- d1
   d1b <- d1
   d1a[,'A2'] <- 1

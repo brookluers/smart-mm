@@ -181,10 +181,6 @@ onesimrun <- function(f_sl, Vtrue_a1a2, missFunc = NULL){
   dd <- f_sl()
   if (!is.null(missFunc)){
     dd <- missFunc(dd)
-    while( any(table(dd[,'id']) < 2 ) ){
-      dd <- f_sl()
-      dd <- missFunc(dd)
-    }
   }
   d_aw <- get_aug_weight(dd)
   d_2a <- data.frame(get_2aug(d_aw))

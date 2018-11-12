@@ -54,9 +54,14 @@ G <- matrix(c(0.8, -0.2, -0.2, 1),
 
 
 missFunc <- function(dd){
-  dd[sample(c(TRUE,FALSE),
+  ret <- dd[sample(c(TRUE,FALSE),
             size=nrow(dd), 
             replace = TRUE, prob = c(1-missprob, missprob)),]
+  nii <- table(ret[,'id'])
+  names(nii)[which(nii<2)]
+  return(
+    ret[!(ret[,'id'] %in% as.numeric(names(nii)[which(nii<2)])),] # throw out ids where ni < 2
+  )
 }
 covfunc_epsilon <- NULL
 

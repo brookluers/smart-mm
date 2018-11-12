@@ -76,7 +76,7 @@ betahat_se_wr <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NU
 
 fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', a1s=c(1,-1), a2s=c(1,-1)) {
   regimenames <- with(expand.grid(A1=a1s,A2=a2s),paste(A1,A2,sep='.'))
-  maxni <- max(table(dat_aug_weight$idrep))
+  maxni <- length(unique(dat_aug_weight$time))
   
   ## Start with V0=I, compute betahat0
   b0_se0 <- betahat_se_wr(dat_aug_weight, ff_fixef,
