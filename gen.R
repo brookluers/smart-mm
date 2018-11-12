@@ -341,7 +341,7 @@ get_aug_weight <- function(dobs, pr_a1= 0.5, pr_a2 = 0.5){
   d1b <- d1
   d1a[,'A2'] <- 1
   d1b[,'A2'] <- -1
-  waves1a <- do.call('c',sapply(ni1,function(ni) return(1:ni)))
+  waves1a <- do.call('c',sapply(ni1,function(ni) return(1:ni), simplify=FALSE))
   d1b <- cbind(d1b, waves=waves1a + rep(ni1, times=ni1))
   d1a <- cbind(d1a, waves=waves1a)
   daw <- rbind(d0, d1a, d1b)
@@ -356,7 +356,7 @@ get_aug_weight <- function(dobs, pr_a1= 0.5, pr_a2 = 0.5){
 get_2aug <- function(daw, pr_a1=0.5, pr_a2=0.5){
   daw2 <- daw[rep(1:nrow(daw), times= daw[,'W']),]
   daw2 <- cbind(daw2, 
-                incr = do.call('c',sapply(daw[,'W'],function(ww) return(seq(0, (ww-1) * (1/ww), 1/ww)))))
+                incr = do.call('c',sapply(daw[,'W'],function(ww) return(seq(0, (ww-1) * (1/ww), 1/ww)), simplify = FALSE)))
   daw2 <- cbind(daw2, id2rep = daw2[,'idrep'] + daw2[,'incr'])
   daw2 <- daw2[order(daw2[,'id2rep'], daw2[,'time']),]
   return(
