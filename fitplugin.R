@@ -1,3 +1,4 @@
+require(purrr)
 
 get_Vi_inverse <- function(Vhatlist, cregime, tveci,uniq_times){
   V <- Vhatlist[[cregime]]
