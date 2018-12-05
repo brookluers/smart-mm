@@ -1,13 +1,12 @@
 
-get_Vi_inverse <- function(vcomplist_a1a2, cregime, tveci,uniq_times){
-  vc_creg <- vcomplist_a1a2[[cregime]]
-  V <- vcomplist_a1a2[[cregime]]$Vhat
+get_Vi_inverse <- function(Vhatlist, cregime, tveci,uniq_times){
+  V <- Vhatlist[[cregime]]
   tpos_i <- which(uniq_times %in% tveci)
   V <- V[tpos_i, tpos_i]
   return(solve(V))
 }
 
-betahat_se_wr <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NULL, se = TRUE, Drep = NULL, Vi_inv_list=NULL) {
+betahat_se_wr <- function(dat_aug_weight, ff_fixef, Vhatlist, betahat = NULL, se = TRUE, Drep = NULL, Vi_inv_list=NULL) {
   if(is.null(Drep)) Drep <- model.matrix(ff_fixef, dat_aug_weight)
   p <- ncol(Drep)
   uniq_ids <- unique(dat_aug_weight$id)
@@ -19,8 +18,8 @@ betahat_se_wr <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NU
   }
   
   if(is.null(Vi_inv_list)){
-    Vi_inv_list <- setNames(vector('list', length(vcomplist_a1a2)),
-                            names(vcomplist_a1a2))
+    Vi_inv_list <- setNames(vector('list', length(Vhatlist)),
+                            names(Vhatlist))
   }
   
   split_dat_aug_weight <- split(dat_aug_weight,dat_aug_weight$idrep)
@@ -35,13 +34,11 @@ betahat_se_wr <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NU
     tpos_i_string <- paste(tpos_i,collapse='.')
     
     if (is.null(Vi_inv_list[[cregime]][[tpos_i_string]])){
-      Vi_inv_list[[cregime]][[tpos_i_string]] <- get_Vi_inverse(vcomplist_a1a2,cregime,tveci,uniq_times)
+      Vi_inv_list[[cregime]][[tpos_i_string]] <- get_Vi_inverse(Vhatlist,cregime,tveci,uniq_times)
     }
     cW_Vi_bdiag_list[[irep]] <- cW * Vi_inv_list[[cregime]][[tpos_i_string]]
   }
   Drep_split_ix <- split(1:nrow(Drep),dat_aug_weight$idrep)
-  
-  
   
   wXi_t_Vi_inv_list <- mapply(Drep_ix = Drep_split_ix,
                               cW_Vi_inv = cW_Vi_bdiag_list,
@@ -78,7 +75,8 @@ betahat_se_wr <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NU
       return(
         list(
           b = betahat,
-          vcov = test_betahat_wr_Matrix(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat=betahat, Drep = Drep, Vi_inv_list = Vi_inv_list))
+          vcov = betahat_se_wr(dat_aug_weight, ff_fixef, vcomplist_a1a2, 
+                               betahat=betahat, Drep = Drep, Vi_inv_list = Vi_inv_list))
       )
     } else { # just return the betahat
       return(
@@ -175,14 +173,9 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
   
   ## Start with V0=I, compute betahat0
   b0_se0 <- betahat_se_wr(dat_aug_weight, ff_fixef,
-                         setNames(lapply(regimenames, 
-                                function(rname) {
-                                  list(
-                                    Vhat = diag(maxni),
-                                    sig2hat = 1
-                                  )
-                                }), regimenames),
-                         betahat = NULL, se = FALSE, Drep=Drep, Vi_inv_list=NULL)
+                          Vhatlist = setNames(lapply(regimenames, function(x) return(diag(maxni))),
+                                              regimenames),
+                         betahat = NULL, se = FALSE, Drep = Drep, Vi_inv_list=NULL)
   betahat0 <- b0_se0$b
   
   muhat0 <- as.numeric(Drep %*% betahat0) # estimated marginal mean for each replicated subject
@@ -196,31 +189,21 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
   nregime <- length(a1s) * length(a2s)
   vcomplist_a1a2 <- setNames(vector('list',length=nregime),
                              regimenames)
-  vcomplist_a1a2 <- 
-    lapply(vcomplist_a1a2,
-         function(x) return(
-           list(
-             Nt = vector('integer', maxni),
-             sum_ni = 0,
-             sum_ni2 = 0,
-             sum_wi=0, # sum of Wtile_i (over i) for this regime
-             sum_wni=0, # sum of Wtilde_i n_i (over i ) for this regime
-             sum_wni2=0, # sum of Wtilde_i n_i^2 (over i) for this regime
-             sig2hat=0, # estimated variance 
-             Vhat=matrix(0, nrow=maxni, ncol=maxni),
-             wriprodsum=matrix(0, nrow=maxni,ncol=maxni)
-           )
-         ))
-  #Nt_allregime <- vector('integer', maxni)
   
+  Ntmat_allregime <- reduce(tapply(dat_aug_weight$time, dat_aug_weight$id,
+                                function(tt) return(tcrossprod(1 * (uniq_times %in% tt)))),
+                         `+`)
+  Nt_allregime <- diag(Ntmat_allregime)
   ## Loop through the regimes and compute
   ## outer products of residual vectors, and sums of weights
   for (a1fix in a1s){
     for (a2fix in a2s){
       cregime <- paste(a1fix,a2fix,sep='.')
       dat_a1a2 <- subset(dat_aug_weight, A1==a1fix & A2 == a2fix)
-      for (irep in unique(dat_a1a2$idrep)){
-        dati_a1a2 <- subset(dat_a1a2, idrep==irep)
+      
+      split_dat_a1a2 <- split(dat_a1a2, dat_a1a2$idrep)
+      a1a2_ri_ni_W <- 
+        lapply(split_dat_a1a2, function(dati_a1a2){
         ni <- nrow(dati_a1a2)
         tveci <- dati_a1a2$time
         ri0_expand[uniq_times %in% tveci] <- dati_a1a2$resid0
@@ -228,41 +211,80 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
         indic_tjobs[uniq_times %in% tveci] <- 1
         indic_tjobs[!(uniq_times %in% tveci)] <- 0
         cW <- dati_a1a2$W[1]
+        wriprodmat <- cW * tcrossprod(ri0_expand)
+        indic_ts_obs_mat <- tcrossprod(indic_tjobs)
         
-        vcomplist_a1a2[[cregime]]$Nt <-
-          vcomplist_a1a2[[cregime]]$Nt + indic_tjobs
-        
-        vcomplist_a1a2[[cregime]]$sum_ni <-
-          vcomplist_a1a2[[cregime]]$sum_ni + ni
-        
-        vcomplist_a1a2[[cregime]]$sum_ni2 <- 
-          vcomplist_a1a2[[cregime]]$sum_ni2 + ni * ni
-        
-        vcomplist_a1a2[[cregime]]$sum_wi <-
-          vcomplist_a1a2[[cregime]]$sum_wi + cW
-        
-        vcomplist_a1a2[[cregime]]$sum_wni <- 
-          vcomplist_a1a2[[cregime]]$sum_wni + cW * ni
-        
-        vcomplist_a1a2[[cregime]]$sum_wni2 <-
-          vcomplist_a1a2[[cregime]]$sum_wni2 + cW * ni * ni
-        
-        vcomplist_a1a2[[cregime]]$wriprodsum <-
-          vcomplist_a1a2[[cregime]]$wriprodsum + cW * tcrossprod(ri0_expand)
-        
-        }
+        return(list(
+          indic_ts_obs_mat = indic_ts_obs_mat,
+          nisum = ni,
+          wriprodmat = wriprodmat,
+          wriprodmat_ltri_scaled = wriprodmat / (sum(indic_ts_obs_mat[lower.tri(indic_ts_obs_mat,diag=F)])),
+          wriprodmat_ni1_scaled = wriprodmat / (ni - 1)
+        ))
+      })
+      
+      vcomplist_a1a2[[cregime]] <- 
+        reduce(a1a2_ri_ni_W, function(x1, x2){
+        return(list(
+          nisum = x1$ni + x2$ni,
+          indic_ts_obs_mat = x1$indic_ts_obs_mat + x2$indic_ts_obs_mat,
+          wriprodmat = x1$wriprodmat + x2$wriprodmat,
+          wriprodmat_ltri_scaled = x1$wriprodmat_ltri_scaled + x2$wriprodmat_ltri_scaled,
+          wriprodmat_ni1_scaled = x1$wriprodmat_ni1_scaled + x2$wriprodmat_ni1_scaled
+        ))
+      })
     }
   }
   
+  vcomplist_a1a2<-
+    lapply(vcomplist_a1a2, function(x){
+    x$sig2_t_a1a2 <- diag(x$wriprodmat) / Nt_allregime
+    x$sig2_a1a2 <- sum(diag(x$wriprodmat)) / sum(Nt_allregime)
+    x$sigma_a1a2 <- sqrt(x$sig2_a1a2)
+    x$sigma_t_a1a2 <- sqrt(x$sig2_t_a1a2)
+    x$sigma_t_s_a1a2 <- outer(x$sigma_t_a1a2, x$sigma_t_a1a2, `*`)
+    x$rho_ts_a1a2 <- x$wriprodmat[lower.tri(x$wriprodmat,diag=F)] / (Ntmat_allregime[lower.tri(Ntmat_allregime,diag=F)] *
+                                                                       x$sigma_t_s_a1a2[lower.tri(x$sigma_t_s_a1a2,diag=F)])
+    x$rho_a1a2 <- (1 / N) * sum(x$wriprodmat_ltri_scaled[lower.tri(x$wriprodmat,diag=F)] / (x$sigma_t_s_a1a2[lower.tri(x$sigma_t_s_a1a2,diag=F)]))
+    x$psi_a1a2 <- (1 / N) * sum(x$wriprodmat_ltri_scaled[lower.tri(x$wriprodmat,diag=F)] / (x$sig2_a1a2))
+    x$tau_t_a1a2 <- (1 / N) * sum(mapply(i=1:(maxni-1), j=2:maxni, function(i,j) return(x$wriprodmat_ni1_scaled[i,j] / x$sigma_t_s_a1a2[i,j])))
+    x$tau_a1a2 <- (1 / N) * sum(mapply(i=1:(maxni-1), j=2:maxni, function(i,j) return(x$wriprodmat_ni1_scaled[i,j] / x$sig2_a1a2)))
+    return(x)
+  })
+  
   ## Given the working correlation structure and those outer products,
   ## compute Vhat and the residual variance estimates
-  vcomplist_a1a2 <- 
-    vhat_plugin(a1s, a2s, vcomplist_a1a2, N, p, corstr=corstr)
-  betahat_se_final <- betahat_se_wr(dat_aug_weight, ff_fixef, vcomplist_a1a2)
-  return(list(b=betahat_se_final$b,
-              vcov=betahat_se_final$vcov,
-              Vhat_a1a2 = lapply(vcomplist_a1a2, function(x) return(x$Vhat)),
-              sig2hat_a1a2 = lapply(vcomplist_a1a2, function(x) return(x$sig2hat_t))))
+  if (corstr=='all'){
+    corstr_all <- c('exchangeable_t_a1a2','exchangeable_t','exchangeable',
+      'unstructured_a1a2','unstructured',
+      'ar1_t_a1a2','ar1_a1a2','ar1',
+      'independence_t_a1a2', 'independence_t','independence')
+    Vhatlist_all <- 
+      setNames(
+      lapply(corstr_all,
+           function(cx) return(vhat_plugin(a1s,a2s,vcomplist_a1a2, N, p, maxni,corstr=cx))
+      ),
+      corstr_all
+    )
+    ret_all <- 
+      lapply(Vhatlist_all, function(Vhatlist) {
+      betahat_se_final <- betahat_se_wr(dat_aug_weight, ff_fixef, Vhatlist, Drep=Drep)
+      return(list(
+        b=betahat_se_final$b,
+        vcov=betahat_se_final$vcov,
+        Vhat_a1a2=Vhatlist))
+    } )
+    return(ret_all)
+      
+  } else {
+    Vhatlist <- 
+      vhat_plugin(a1s, a2s, vcomplist_a1a2, N, p, maxni, corstr=corstr)
+    betahat_se_final <- betahat_se_wr(dat_aug_weight, ff_fixef, Vhatlist, Drep=Drep)
+    return(list(b=betahat_se_final$b,
+                vcov=betahat_se_final$vcov,
+                Vhat_a1a2 = Vhatlist))
+  }
+  
 }
 
 
@@ -271,111 +293,137 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
 # sums of weights, etc. stored in vcomplist_a1a2,
 # compute the estimated Vhat for each regime given the
 # desired correlation structure
-vhat_plugin <- function(a1s, a2s, vcomplist_a1a2, N, p, corstr = 'exchangeable'){
-  maxni <- length(diag(vcomplist_a1a2[[1]]$Vhat))
-  if (corstr=='exchangeable'){
-    sig2hat_numer <- 0
-    sig2hat_denom <- 0
-    rhohat_numer <- 0
-    rhohat_denom <- 0 
-    for (a1fix in a1s){
-      for (a2fix in a2s){
-        cregime <- paste(a1fix, a2fix, sep='.')
-        wririmat <- vcomplist_a1a2[[cregime]]$wriprodsum
-        sig2hat_numer <- sig2hat_numer + sum(diag(wririmat))
-        sig2hat_denom <- sig2hat_denom + vcomplist_a1a2[[cregime]]$sum_wni
-        rhohat_numer <- rhohat_numer + sum(wririmat[lower.tri(wririmat,diag=F)])
-        rhohat_denom <- rhohat_denom + vcomplist_a1a2[[cregime]]$sum_wni2 / 2 - 
-          vcomplist_a1a2[[cregime]]$sum_wni / 2
-        #vcomplist_a1a2[[cregime]]$sig2hat
-        #vcomplist_a1a2[[cregime]]$Vhat
-      }
-    }
-    sig2hat_denom <- sig2hat_denom - p
-    sig2hat <- sig2hat_numer / sig2hat_denom
-    rhohat_denom <- sig2hat * (rhohat_denom - p)
-    rhohat <- rhohat_numer / rhohat_denom
-    
-    ret <- lapply(vcomplist_a1a2,
-           function(x) {
-             x$sig2hat <- sig2hat
-             x$sig2hat_t <- rep(sig2hat, maxni)
-             x$Vhat[lower.tri(x$Vhat)] <- rhohat
-             x$Vhat[upper.tri(x$Vhat)] <- rhohat
-             diag(x$Vhat) <- 1
-             x$Vhat <- x$Vhat * sig2hat
-             return(x)
-           }
-             )
+vhat_plugin <- function(a1s, a2s, vcomplist_a1a2, N, p, maxni, corstr = 'exchangeable'){
+  nregime <- length(vcomplist_a1a2)
+  if (corstr=='exchangeable_t_a1a2'){
+    ret <- 
+      lapply(vcomplist_a1a2,
+           function(x){
+             x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+             x$Vhat[lower.tri(x$Vhat,diag=F)] <- x$sigma_t_s_a1a2[lower.tri(x$Vhat,diag=F)] * x$rho_a1a2
+             diag(x$Vhat) <- x$sig2_t_a1a2
+             x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+             return(x$Vhat)
+           })
    return(ret) 
-  } else if (corstr=='unstructured_a1a2') {
-    # for each regime,
-    #   estimate the variance at each time point
-    #   estimate the correlation individually for each pair of time points (t, s)
-    sig2hat_t_numer <- vector('numeric', maxni)
-    sig2hat_denom <- 0
-    rhohat_ts_numer <- vector('numeric', maxni * (maxni - 1) / 2)
-    rhohat_ts_denom <- vector('numeric', maxni * (maxni - 1) /2 )
-    
-    ret <-
-      lapply(vcomplist_a1a2, function(x){
-        wririmat <- x$wriprodsum
-        x$sig2hat_t <- diag(wririmat) / (x$sum_wi - p)
-        sighat_t <- sqrt(x$sig2hat_t)
-        rho_ts_numer <- as.numeric(wririmat[lower.tri(wririmat, diag=F)])
-        sig_t_sig_s <- outer(sighat_t, sighat_t,`*`)[lower.tri(x$Vhat,diag=F)]
-        rho_ts_denom <- N * sig_t_sig_s
-        x$rhohat_ts <- rho_ts_numer / rho_ts_denom
-        x$Vhat[lower.tri(x$Vhat,diag=F)] <- x$rhohat_ts * sig_t_sig_s
-        x$Vhat <- x$Vhat + t(x$Vhat)
-        diag(x$Vhat) <- x$sig2hat_t
-        return(x)
-      })
-    
-    return(ret) 
   } else if (corstr == 'exchangeable_t'){
-    sig2hat_numer <- 0
-    sig2hat_denom <- 0
-    sig2hat_t_numer <- vector('numeric', maxni)
-    sig2hat_t_denom <- 0
-    rhohat_denom <- 0 
-    rhohat_numer <- 0 
-    for (a1fix in a1s){
-      for (a2fix in a2s){
-        cregime <- paste(a1fix, a2fix, sep='.')
-        wririmat <- vcomplist_a1a2[[cregime]]$wriprodsum
-        
-        sig2hat_numer <- sig2hat_numer + sum(diag(wririmat))
-        sig2hat_denom <- sig2hat_denom + vcomplist_a1a2[[cregime]]$sum_wni
-        
-        sig2hat_t_numer <- sig2hat_t_numer + diag(wririmat)
-        sig2hat_t_denom <- sig2hat_t_denom + vcomplist_a1a2[[cregime]]$sum_wi
-        rhohat_numer <- rhohat_numer + sum(wririmat[lower.tri(wririmat,diag=F)])
-        rhohat_denom <- rhohat_denom + vcomplist_a1a2[[cregime]]$sum_wni2 / 2 - 
-          vcomplist_a1a2[[cregime]]$sum_wni / 2
-      }
-    }
     
-    sig2hat_denom <- sig2hat_denom - p
-    sig2hat <- sig2hat_numer / sig2hat_denom
-    
-    sig2hat_t_denom <- sig2hat_t_denom - p
-    sig2hat_t <- sig2hat_t_numer / sig2hat_t_denom
-    sighat_t <- sqrt(sig2hat_t)
-    rhohat_denom <- sig2hat * (rhohat_denom - p)
-    rhohat <- rhohat_numer / rhohat_denom
-    ret <- lapply(vcomplist_a1a2,
-                  function(x) {
-                    x$sig2hat_t <- sig2hat_t
-                    x$Vhat[lower.tri(x$Vhat)] <- rhohat
-                    x$Vhat[upper.tri(x$Vhat)] <- rhohat
-                    diag(x$Vhat) <- 1
-                    x$Vhat <- diag(sighat_t) %*% x$Vhat %*% diag(sighat_t)
-                    return(x)
-                  }
-    )
+    rho <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$rho_a1a2)),`+`)
+    sig2_t <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_t_a1a2)),`+`)
+    sig_t_s <- outer(sqrt(sig2_t), sqrt(sig2_t), `*`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- sig_t_s[lower.tri(x$Vhat, diag = F)] * rho
+               diag(x$Vhat) <- sig2_t
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+  } else if (corstr=='exchangeable'){
+    psi <- (1 / nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$psi_a1a2)),`+`)
+    sig2 <- (1/nregime)  * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_a1a2)),`+`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- sig2 * psi
+               diag(x$Vhat) <- sig2
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+  } else if (corstr=='unstructured_a1a2') {
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- x$sigma_t_s_a1a2[lower.tri(x$Vhat,diag=F)] * x$rho_ts_a1a2
+               diag(x$Vhat) <- x$sig2_t_a1a2
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+    return(ret) 
+  }  else if (corstr=='unstructured'){
+    rho_ts <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$rho_ts_a1a2)),`+`)
+    sig2_t <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_t_a1a2)),`+`)
+    sig_t_s <- outer(sqrt(sig2_t), sqrt(sig2_t), `*`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- sig_t_s[lower.tri(x$Vhat,diag=F)] * rho_ts
+               diag(x$Vhat) <- sig2_t
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
     return(ret)
-  } else {
+  } else if (corstr=='ar1_t_a1a2'){
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- x$sigma_t_s_a1a2[lower.tri(x$Vhat,diag=F)] * (x$tau_t_a1a2^abs(row(x$Vhat) - col(x$Vhat)))[lower.tri(x$Vhat,diag=F)]
+               diag(x$Vhat) <- x$sig2_t_a1a2
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+    return(ret)
+  } else if (corstr=='ar1_a1a2'){
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- x$sig2_a1a2 * (x$tau_a1a2^abs(row(x$Vhat) - col(x$Vhat)))[lower.tri(x$Vhat,diag=F)]
+               diag(x$Vhat) <- x$sig2_a1a2
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+    return(ret)
+  } else if (corstr=='ar1'){
+    sig2_t <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_t_a1a2)),`+`)
+    sig_t_s <- outer(sqrt(sig2_t), sqrt(sig2_t), `*`)
+    tau <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$tau_a1a2)),`+`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               x$Vhat[lower.tri(x$Vhat,diag=F)] <- sig_t_s[lower.tri(x$Vhat,diag=F)] * (tau^abs(row(x$Vhat) - col(x$Vhat)))[lower.tri(x$Vhat,diag=F)]
+               diag(x$Vhat) <- sig2_t
+               x$Vhat[upper.tri(x$Vhat,diag=F)] <- x$Vhat[lower.tri(x$Vhat,diag=F)]
+               return(x$Vhat)
+             })
+    return(ret)
+  } else if (corstr=='independence_t_a1a2'){
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               diag(x$Vhat) <- x$sig2_t_a1a2
+               return(x$Vhat)
+             })
+    return(ret)
+  } else if (corstr=='independence_t') {
+    sig2_t <- (1/nregime) * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_t_a1a2)),`+`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               diag(x$Vhat) <- sig2_t
+               return(x$Vhat)
+             })
+    return(ret)
+  } else if (corstr=='independence') {
+    sig2 <- (1/nregime)  * reduce(lapply(vcomplist_a1a2,function(x) return(x$sig2_a1a2)),`+`)
+    ret <- 
+      lapply(vcomplist_a1a2,
+             function(x){
+               x$Vhat <- matrix(0, nrow=maxni, ncol=maxni)
+               diag(x$Vhat) <- sig2
+               return(x$Vhat)
+             })
+    return(ret)
+  }
+  else {
     return(NULL)
   }
 }

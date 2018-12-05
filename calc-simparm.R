@@ -167,17 +167,9 @@ large_effsizes <-
                  fn_tscov = covfunc_epsilon))
 
 
-methodnames <- c(# "exch_lucy",
-                 "indep_lucy",
-                 "exch_plugin",
-                 "unstr_plugin",
-                 "mm_slopes",
-                 "mm_intercept",
-                 "trueV")
+methodnames <- c("mm_slopes", "mm_intercept", "trueV")
 
 onesimrun <- function(f_sl, Vtrue_a1a2, missFunc = NULL){
-  vcomplist_a1a2_true <- lapply(Vtrue_a1a2, function(x) return(list(Vhat=x)))
-  
   dd <- f_sl()
   if (!is.null(missFunc)){
     dd <- missFunc(dd)
@@ -185,75 +177,62 @@ onesimrun <- function(f_sl, Vtrue_a1a2, missFunc = NULL){
   d_aw <- get_aug_weight(dd)
   d_2a <- data.frame(get_2aug(d_aw))
   d_aw <- data.frame(d_aw)
-  # fit_exch_lucy <- geeglm_smart_exch(d_aw, ff_fixef)
-  fit_indep_lucy <- geeglm_smart_indep(d_aw, ff_fixef)
-  fit_exch_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='exchangeable')
-  fit_unstr_plugin <- fitsmart_plugin_wr(d_aw, ff_fixef, a1s=c(1,-1), a2s=c(1,-1), corstr='unstructured_a1a2')
+  
+  fit_all_plugin <- fitsmart_plugin_wr(d_aw,ff_fixef,corstr='all',a1s=c(1,-1),a2s=c(1,-1))
+  methodnames <- c(methodnames, names(fit_all_plugin))
+  
   fit_mm_slopes <- fit_smart_lmer(d_2a, d_aw, ff_lmer_slopes, ff_fixef, ff_Z_slopes)
   fit_mm_intercept <- fit_smart_lmer(d_2a, d_aw, ff_lmer_intercept, ff_fixef, ff_Z_intercept)
-  fit_trueV <- betahat_se_wr(d_aw, ff_fixef, vcomplist_a1a2_true)
+  fit_trueV <- betahat_se_wr(d_aw, ff_fixef, Vtrue_a1a2)
   
   ## betahat
   coefmat <- 
-    rbind(# fit_exch_lucy$b,
-          fit_indep_lucy$b,
-          fit_exch_plugin$b,
-          fit_unstr_plugin$b,
-          fit_mm_slopes$b,
+    rbind(fit_mm_slopes$b,
           fit_mm_intercept$b,
-          fit_trueV$b)
+          fit_trueV$b,
+          do.call('rbind',lapply(fit_all_plugin,function(fit_j) return(fit_j$b))))
+  rownames(coefmat) <- methodnames
   
-  vlist_bhat <- setNames(list(# fit_exch_lucy$vcov,
-                              fit_indep_lucy$vcov,
-                              fit_exch_plugin$vcov,
-                              fit_unstr_plugin$vcov,
-                              fit_mm_slopes$vcov,
+  vlist_bhat <- setNames(c(list(fit_mm_slopes$vcov,
                               fit_mm_intercept$vcov,
-                              fit_trueV$vcov), methodnames)
+                              fit_trueV$vcov),
+                              lapply(fit_all_plugin, function(fit_j) return(fit_j$vcov))), methodnames)
   
   ## V estimates
   Vhat_mm_slopes <- get_Vhat_lmer(fit_mm_slopes, tvec, ff_Z_slopes)
   Vhat_mm_intercept <- get_Vhat_lmer(fit_mm_intercept, tvec, ff_Z_intercept)
-  avg_Vtrue <- matrix(0,nrow=nrow(Vhat_mm_slopes), ncol=ncol(Vhat_mm_slopes))
-  avg_V_unstr <- matrix(0,nrow=nrow(Vhat_mm_slopes), ncol=ncol(Vhat_mm_slopes))
-  for (cregime in regimenames){
-    avg_V_unstr <- avg_V_unstr + fit_unstr_plugin$Vhat_a1a2[[cregime]]
-    avg_Vtrue <- avg_Vtrue + Vtrue_a1a2[[cregime]]
-  }
-  avg_Vtrue <- (1 / length(regimenames)) * avg_Vtrue
-  avg_V_unstr <- (1/length(regimenames)) * avg_V_unstr
-  avg_Vnorms <- setNames(vector('numeric', length(methodnames)), methodnames)
-  for (cregime in regimenames){
-    avg_Vnorms['unstr_plugin'] <- avg_Vnorms['unstr_plugin'] + 
-      (1 / length(regimenames)) * norm(fit_unstr_plugin$Vhat_a1a2[[cregime]] - Vtrue_a1a2[[cregime]],type='F')
-   # avg_Vnorms['exch_lucy'] <- avg_Vnorms['exch_lucy'] + 
-      #(1 / length(regimenames)) * norm(fit_exch_lucy$Vhat - Vtrue_a1a2[[cregime]], type='F')
-    avg_Vnorms['indep_lucy'] <- avg_Vnorms['indep_lucy'] + 
-      (1 / length(regimenames)) * norm(fit_indep_lucy$Vhat - Vtrue_a1a2[[cregime]], type='F')
-    avg_Vnorms['mm_slopes'] <- avg_Vnorms['mm_slopes'] + 
-      (1 / length(regimenames)) * norm(Vhat_mm_slopes - Vtrue_a1a2[[cregime]], type='F')
-    avg_Vnorms['mm_intercept'] <- avg_Vnorms['mm_intercept'] + 
-      (1 / length(regimenames)) * norm(Vhat_mm_intercept - Vtrue_a1a2[[cregime]], type='F')
-    avg_Vnorms['exch_plugin'] <- avg_Vnorms['exch_plugin'] +
-      (1 / length(regimenames)) * norm(fit_exch_plugin$Vhat_a1a2[[cregime]] - Vtrue_a1a2[[cregime]], type='F')
-    avg_Vnorms['trueV'] <- 0
-  }
-  ## Vhat
-  vhatmat <- 
-    rbind(#as.numeric(fit_exch_lucy$Vhat),
-          as.numeric(fit_indep_lucy$Vhat),
-          as.numeric(fit_exch_plugin$Vhat_a1a2[[1]]),
-          as.numeric(avg_V_unstr),
-          as.numeric(Vhat_mm_slopes),
-          as.numeric(Vhat_mm_intercept),
-          as.numeric(avg_Vtrue))
+  
+  
+  Vhat_a1a2_allfits <-
+    setNames(c(list(setNames(lapply(regimenames, function(cr) return(Vhat_mm_slopes)), regimenames),
+                    setNames(lapply(regimenames, function(cr) return(Vhat_mm_intercept)), regimenames),
+                    Vtrue_a1a2),
+               lapply(fit_all_plugin,function(fj)return(fj$Vhat_a1a2))),
+             methodnames)
+  avg_Vnorms <- 
+    sapply(Vhat_a1a2_allfits,
+         function(vhl_a1a2) {
+           vnorms_a1a2 <- 
+             mapply(vhat = vhl_a1a2,
+                  vtrue = Vtrue_a1a2,
+                  function(vhat, vtrue) return(norm(vhat - vtrue,type='F')),
+                  SIMPLIFY = F)
+           return((1/length(regimenames)) * reduce(vnorms_a1a2, `+`))
+         })
+  
+  
+  vhatmat <- setNames(lapply(regimenames, function(rr)
+    return(do.call(
+      'rbind', lapply(Vhat_a1a2_allfits, function(vhj)
+        return(vhj[[rr]][lower.tri(vhj[[rr]], diag = T)]))
+    ))), regimenames)
   
   return(list(
-    bhat=coefmat,
-    vlist=vlist_bhat,
+    bhat = coefmat,
+    vlist = vlist_bhat,
     vhatmat = vhatmat,
     vnorms = avg_Vnorms,
-    method=methodnames
+    method = methodnames
   ))
 }
 
