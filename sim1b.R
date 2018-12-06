@@ -70,19 +70,19 @@ if (doEffsize == 'small') {
   cat('\n\nsaving results for small effect size\n')
   res_small <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_small, Vtruelist$small)))
   save(alpha_small, small_effsizes, truecoefs_small, res_small, simparm,
-       file= paste("sim1-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
+       file= paste("sim1b-smalleffect-N",N,"-nsim",nsim,".RData", sep=''))
   rm(res_small)
 } else if (doEffsize == 'med') {
   cat('\n\nsaving results for medium effect size\n')
   res_med <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_med, Vtruelist$med)))
   save(alpha_med, med_effsizes, truecoefs_med, res_med, simparm,
-       file= paste("sim1-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
+       file= paste("sim1b-medeffect-N",N,"-nsim",nsim,".RData", sep=''))
   
 } else if (doEffsize == 'large') {
   cat('\n\nsaving results for large effect size\n')
   res_large <- mclapply(1:nsim, function(ix) return(onesimrun(f_sl_large, Vtruelist$large)))
   save(alpha_large, large_effsizes, truecoefs_large, res_large, simparm,
-       file= paste("sim1-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
+       file= paste("sim1b-largeeffect-N",N,"-nsim",nsim,".RData", sep=''))
   
 } else {
   cat('\nsaving results for small, medium, and large effect sizes\n')
