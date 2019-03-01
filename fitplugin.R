@@ -169,7 +169,7 @@ betahat_se_wr_old <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat 
 
 fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', a1s=c(1,-1), a2s=c(1,-1)) {
   Drep <- model.matrix(ff_fixef, dat_aug_weight)
-  regimenames <- with(expand.grid(A1=a1s,A2=a2s),paste(A1,A2,sep='.'))
+  regimenames <- with(expand.grid(A1=a1s,A2=a2s), paste(A1,A2,sep='.'))
   maxni <- length(unique(dat_aug_weight$time))
   
   ## Start with V0=I, compute betahat0
@@ -277,6 +277,23 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
     } )
     return(ret_all)
       
+  } else if (length(corstr) > 1){
+    Vhatlist_all <- 
+      setNames(
+        lapply(corstr,
+               function(cx) return(vhat_plugin(a1s,a2s,vcomplist_a1a2, N, p, maxni,corstr=cx))
+        ),
+        corstr
+      )
+    ret_all <- 
+      lapply(Vhatlist_all, function(Vhatlist) {
+        betahat_se_final <- betahat_se_wr(dat_aug_weight, ff_fixef, Vhatlist, Drep=Drep)
+        return(list(
+          b=betahat_se_final$b,
+          vcov=betahat_se_final$vcov,
+          Vhat_a1a2=Vhatlist))
+      } )
+    return(ret_all)
   } else {
     Vhatlist <- 
       vhat_plugin(a1s, a2s, vcomplist_a1a2, N, p, maxni, corstr=corstr)

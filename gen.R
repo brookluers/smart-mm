@@ -190,11 +190,11 @@ get_effsizes <- function(a11, a21, a12, a22, alpha, psi, X, theta, knot, tvec, G
   
     return(
       cbind(time = means_regime1[,'time'],
-          a11=means_regime1[,'a1'], a21 = means_regime1[,'a2'],
+          a11 = means_regime1[,'a1'], a21 = means_regime1[,'a2'],
           a21 = means_regime2[,'a1'], a22=means_regime2[,'a2'],
-          meandiff = means_regime1[,'mu'] - means_regime2[,'mu'],
-          avgvar = (1/2) * (var_regime1 + var_regime2),
-          sdavg = sqrt( (1/2) * (var_regime1 + var_regime2) ),
+          #meandiff = means_regime1[,'mu'] - means_regime2[,'mu'],
+          #avgvar = (1/2) * (var_regime1 + var_regime2),
+          #sdavg = sqrt( (1/2) * (var_regime1 + var_regime2) ),
           effsize = ( means_regime1[,'mu'] - means_regime2[,'mu'] ) / 
             sqrt( (1/2) * (var_regime1 + var_regime2) ) )
     )
