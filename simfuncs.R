@@ -5,39 +5,24 @@ library(parallel)
 
 get_simparm <- function(cmd_args, N, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
-                        ff_Zgen, G, covfunc_epsilon, corstr='all'){
+                        ff_Zgen, G, covfunc_epsilon, corstr='all', missFunc = NULL){
   N <- as.numeric(cmd_args[1])
   nsim <- as.numeric(cmd_args[2])
   myseed <- as.numeric(cmd_args[3])
   mycores <- cmd_args[4]
   doEffsize <- cmd_args[5]
-  missprob <- cmd_args[6]
   set.seed(myseed)
   cat("\nN = "); cat(N)
   cat("\nnsim = "); cat(nsim)
   if (is.na(doEffsize)) {
     doEffsize <- 'all'
-    
   }
   cat("\neffect size = "); cat(doEffsize)
-  if (is.na(missprob)){
-    cat("No missingness\n")
-    missFunc <- NULL
+  if (is.null(missFunc)){
+    cat("\nNo missingness\n")
   } else {
-    missprob <- as.numeric(missprob)
-    cat("\nMissingness probability = "); cat(missprob); cat("\n")
-    missFunc <- function(dd){
-      ret <- dd[sample(c(TRUE,FALSE),
-                       size=nrow(dd), 
-                       replace = TRUE, prob = c(1 - missprob, missprob)),]
-      nii <- table(ret[,'id'])
-      names(nii)[which(nii<2)]
-      return(
-        ret[!(ret[,'id'] %in% as.numeric(names(nii)[which(nii<2)])),] # throw out ids where ni < 2
-      )
-    }
+    cat("\nmissingness function supplied\n")
   }
-  
   
   cat("\nseed = "); cat(myseed)
   cat("\ndesired cores = "); cat(mycores);
@@ -192,7 +177,7 @@ get_simparm <- function(cmd_args, N, a1s, a2s, alphalist, effsizenames,
           a12 <- regimemat[ij[2], 1]
           a22 <- regimemat[ij[2], 2]
           return(
-            get_effsizes(a11=1, a21=1, a12=-1, a22=1, alpha= alphalist[[effsize]], 
+            get_effsizes(a11=a11, a21=a21, a12=a12, a22=a22, alpha= alphalist[[effsize]], 
                        psi=psi, X=1, theta, knot, tvec=max(tvec), G, ff_Zgen, sigma=sigma, cutoff,
                        fn_tscov = covfunc_epsilon))
         })
@@ -220,7 +205,6 @@ get_simparm <- function(cmd_args, N, a1s, a2s, alphalist, effsizenames,
     missprob = missprob,
     missFunc = missFunc,
     N = N,
-    a1s, a2s,
     G = G,
     Vtruelist = Vtruelist,
     tvec = tvec,
