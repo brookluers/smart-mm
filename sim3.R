@@ -19,25 +19,22 @@ cutoff <- 1.1
 ff_Zgen <- Y ~ 1 + time
 G <- matrix(c(1, -0.4, -0.4, 2),
             nrow=2,byrow=T)
-missprob <- 0.2
+missprob <- NULL
+missing_cutoff <- -3.5
+missing_timepoint <- 2.25
 missFunc <- function(dd){
-  ret <- dd[sample(c(TRUE,FALSE),
-                   size=nrow(dd), 
-                   replace = TRUE, prob = c(1 - missprob, missprob)),]
-  nii <- table(ret[,'id'])
-  names(nii)[which(nii<2)]
-  return(
-    ret[!(ret[,'id'] %in% as.numeric(names(nii)[which(nii<2)])),] # throw out ids where ni < 2
-  )
+  miss_ids <- dd[dd[,'time'] == missing_timepoint ,'id'][dd[dd[,'time']==missing_timepoint,'Y'] < missing_cutoff]
+  dd_miss <- dd[!( (dd[,'id'] %in% miss_ids) & (dd[,'time'] >= missing_timepoint) ),]
+  return(dd_miss)
 }
 covfunc_epsilon <- NULL
 
 simparm <- get_simparm(args, N, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
                         ff_Zgen, G, covfunc_epsilon, missFunc = missFunc)
-simparm <- c(simparm, missprob = missprob)
-cat("\nProb(missing) = ")
-cat(missprob);cat('\n')
+#simparm <- c(simparm, missprob = missprob)
+#cat("\nProb(missing) = ")
+#cat(missprob);cat('\n')
 
 cat("effect sizes: \n")
 print(simparm$effsizelist)
