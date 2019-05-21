@@ -65,13 +65,18 @@ getSE_blups_lmer <- function(fitmer, ff_fixef, ff_Z, dat_aug_weight){
 # ff_Z: just the random effects part of the formula, conditional on a single id
 ##     e.g.  Y ~ 1 for interceptso nly
 # ff_lmer: the full lmer formula, including fixed and random effects
-fit_smart_lmer <- function(dat_2aw, dat_aw, ff_lmer, ff_fixef, ff_Z) {
+fit_smart_lmer <- function(dat_2aw, dat_aw, ff_lmer, ff_fixef, ff_Z, blups = FALSE) {
   fmer <- lmer(ff_lmer, data = dat_2aw, REML = FALSE)
   finfo <- getSE_blups_lmer(fmer, ff_fixef, ff_Z, dat_aw)
-  return(list(b=fixef(fmer),
-              vcov=finfo$vcov,
-              Gtri = finfo$Gtri,
-              sig2hat=finfo$sig2hat))
+  ret <- 
+    list(b=fixef(fmer),
+       vcov=finfo$vcov,
+       Gtri = finfo$Gtri,
+       sig2hat=finfo$sig2hat)
+  if (blups){
+    ret$blups <- finfo$blups
+  }
+  return(ret)
 }
 
 get_Vhat_lmer <- function(fitmer, tvec, ff_Z){
