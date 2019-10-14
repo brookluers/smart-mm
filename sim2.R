@@ -21,7 +21,7 @@ G <- matrix(c(1, -0.4, -0.4, 2),
             nrow=2,byrow=T)
 covfunc_epsilon <- NULL
 
-simparm <- get_simparm(args, N, a1s, a2s, alphalist, effsizenames,
+simparm <- get_simparm(args, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
                         ff_Zgen, G, covfunc_epsilon)
 

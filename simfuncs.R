@@ -3,7 +3,7 @@ source("fit.R")
 source("fitplugin.R")
 library(parallel)
 
-get_simparm <- function(cmd_args, N, a1s, a2s, alphalist, effsizenames,
+get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
                         ff_Zgen, G, covfunc_epsilon, corstr='all', missFunc = NULL){
   N <- as.numeric(cmd_args[1])

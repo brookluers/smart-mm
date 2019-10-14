@@ -88,85 +88,6 @@ betahat_se_wr <- function(dat_aug_weight, ff_fixef, Vhatlist, betahat = NULL, se
   }
 }
 
-
-# Compute the weighted-replicated hat(beta) coefficients
-# betahat: optional pre-computed coefficients, used to compute standard errors
-#          when this argument is provided, function returns standard errors only
-# se: when betahat is NULL and se is FALSE, only compute hat(beta) without standard errors
-#     when betahat is NULL and se = TRUE, computes hat(beta) and standard errors (requires two loops through the data)
-# vcomplist_a1a2: named list of variance matrix estimates for each regime. 
-#                 names correspond to regimes: "a1.a2" e.g. "1.1", "1.-1"
-betahat_se_wr_old <- function(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat = NULL, se = TRUE) {
-  Drep <- model.matrix(ff_fixef, dat_aug_weight)
-  p <- ncol(Drep)
-  uniq_ids <- unique(dat_aug_weight$id)
-  N <- length(uniq_ids)
-  uniq_times <- unique(dat_aug_weight$time)
-  wXtVX <- matrix(0, nrow=p, ncol=p)
-  wXtVY <- vector('numeric', length=p)
-  if (!is.null(betahat)){
-    muhat <- Drep %*% betahat
-    dat_aug_weight$residfit <- dat_aug_weight$Y - muhat
-    bread <- matrix(0, nrow=p, ncol=p)
-    J <- matrix(0, nrow=p, ncol=p)
-    meat <- matrix(0, nrow=p, ncol=p)
-  }
-  for (i in uniq_ids){
-    dati <- subset(dat_aug_weight, id==i)
-    if (!is.null(betahat)){
-      Ji <- matrix(0, nrow=p, ncol=p)
-      Ui <- vector('numeric', p)
-    }
-    for (irep in unique(dati$idrep)){ # loop over each replicated "subject" within this true subject
-      ## This is like summing over the regimes, within a person (i) 
-      dati_regime <- subset(dati, idrep==irep)
-      cregime <- paste(dati_regime$A1[1], dati_regime$A2[1],sep='.')
-      Yi <- dati_regime$Y
-      ni <- nrow(dati_regime)
-      tveci <- dati_regime$time
-      V <- vcomplist_a1a2[[cregime]]$Vhat
-      tpos_i <- which(uniq_times %in% tveci)
-      V <- V[tpos_i, tpos_i]
-      solve_V <- solve(V)
-      cW <- dati_regime$W[1]
-      Da1a2 <- model.matrix(ff_fixef, dati_regime)
-      tDa1a2 <- t(Da1a2)
-      cWtDa1a2_solve_V <- cW * tDa1a2 %*% solve_V
-      wXtVX <- wXtVX + cWtDa1a2_solve_V %*% Da1a2
-      wXtVY <- wXtVY + cWtDa1a2_solve_V %*% Yi
-      if (!is.null(betahat)){
-        ri <- dati_regime$residfit
-        Ui <- Ui + cW * t(Da1a2) %*% solve(V, ri)
-        Ji <- Ji + cW * t(Da1a2) %*% solve_V %*% Da1a2
-      }
-    }
-    if (!is.null(betahat)){
-      J <- J + (1 / N) * Ji
-      meat <- meat + (1 / N) * tcrossprod(Ui)
-    }
-  }
-  if (!is.null(betahat)){
-    bread <- solve(J)
-    semat <- (1 / N) * (bread %*% meat %*% bread)
-    return(semat)
-  } else{
-    betahat <- as.numeric(solve(wXtVX, wXtVY))
-    if (se){ # compute the standard errors for this betahat
-      return(
-        list(
-          b = betahat,
-          vcov = betahat_se_wr(dat_aug_weight, ff_fixef, vcomplist_a1a2, betahat=betahat))
-      )
-    } else { # just return the betahat
-      return(
-        list(b = betahat)
-      )
-    }
-    
-  }
-}
-
-
 fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', a1s=c(1,-1), a2s=c(1,-1)) {
   Drep <- model.matrix(ff_fixef, dat_aug_weight)
   regimenames <- with(expand.grid(A1=a1s,A2=a2s), paste(A1,A2,sep='.'))
@@ -304,8 +225,6 @@ fitsmart_plugin_wr <- function(dat_aug_weight, ff_fixef, corstr='exchangeable', 
   }
   
 }
-
-
 
 # Given the outer products of residuals,
 # sums of weights, etc. stored in vcomplist_a1a2,

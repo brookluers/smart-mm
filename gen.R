@@ -1,12 +1,5 @@
 library(MASS)
 
-get_pinr_old <- function(alpha, knot, a1, G, sigma, cutoff){
-  mu <- alpha[1] + knot * alpha[2] + knot * alpha[3] * a1
-  zt <- c(1, knot)
-  v <- as.numeric(t(zt) %*% G %*% zt) + sigma^2
-  return(pnorm((cutoff - mu) / sqrt(v)))
-}
-
 get_pinr <- function(alpha, knot, a1, G, ff_Z, sigma, cutoff) {
   mu <- alpha[1] + knot * alpha[2] + knot * alpha[3] * a1
   zknotT <- model.matrix(ff_Z, data.frame(time=knot,Y=-99))

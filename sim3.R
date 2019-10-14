@@ -29,12 +29,9 @@ missFunc <- function(dd){
 }
 covfunc_epsilon <- NULL
 
-simparm <- get_simparm(args, N, a1s, a2s, alphalist, effsizenames,
+simparm <- get_simparm(args, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
                         ff_Zgen, G, covfunc_epsilon, missFunc = missFunc)
-#simparm <- c(simparm, missprob = missprob)
-#cat("\nProb(missing) = ")
-#cat(missprob);cat('\n')
 
 cat("effect sizes: \n")
 print(simparm$effsizelist)

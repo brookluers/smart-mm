@@ -2,11 +2,6 @@
 args <- commandArgs(trailingOnly=TRUE)
 source("simfuncs.R")
 
-## When alhpa5=alpha6=0 and psi(a1)=0, then the
-## marginal variances do not differ by regime, and the marginal residual has the 
-## random effects structure we use for estimation.
-##   In this case, ||Vhat - V|| should be very smal
-
 a1s <- c(1,-1)
 a2s <- c(1,-1)
 alpha_small <- c(1, 0.1, 0.11, 0.15, 0.08, 0, 0)
@@ -26,7 +21,7 @@ G <- matrix(c(0.8, -0.2, -0.2, 1),
             nrow=2,byrow=T)
 covfunc_epsilon <- NULL
 
-simparm <- get_simparm(args, N, a1s, a2s, alphalist, effsizenames,
+simparm <- get_simparm(args, a1s, a2s, alphalist, effsizenames,
                         psi, theta, tvec, knot, sigma, cutoff, 
                         ff_Zgen, G, covfunc_epsilon)
 
