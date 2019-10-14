@@ -21,7 +21,7 @@ Rscript --vanilla sim1.R 5000 1000 304 3 med
 Rscript --vanilla sim1.R 5000 1000 304 3 large
 ```
     
-To produce LaTeX tables:
+To produce LaTeX table:
 
 ```
 Rscript --vanilla fmt-sim1.R
@@ -39,7 +39,7 @@ Rscript --vanilla sim2.R 5000 1000 304 3 med
 Rscript --vanilla sim2.R 5000 1000 304 3 large
 ```
     
-To produce LaTeX tables:
+To produce LaTeX table:
 
 ```
 Rscript --vanilla fmt-sim2.R
@@ -57,7 +57,7 @@ Rscript --vanilla sim3.R 5000 1000 304 3 med
 Rscript --vanilla sim3.R 5000 1000 304 3 large
 ```
     
-To produce LaTeX tables:
+To produce LaTeX table:
 
 ```
 Rscript --vanilla fmt-sim3.R
