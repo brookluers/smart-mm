@@ -2,8 +2,9 @@ library(tidyverse)
 library(xtable)
 source("fmt-funcs.R")
 
-ssizes <- c(50, 200, 5000)
-effsizes <- c('med')
+fnames <- list.files(pattern = 'sim2-.*\\.RData')
+ssizes <- unique(as.numeric(str_match(fnames, '(-N)([0-9]+)')[,3]))
+effsizes <- unique(str_extract(fnames, 'small|med|large'))
 effsizevalues <- c('small' = 0.2, 'med' = 0.5, 'large' = 0.8)
 conflvl <- 0.95
 showmethods <- c('mm_slopes','mm_intercept',

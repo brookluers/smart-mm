@@ -31,7 +31,6 @@ get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
   options(cores=mycores)
   options(mc.cores=mycores)
   cat("\n--using "); cat(mycores); cat(" cores")
-  cat("\noption('mc.cores',2) = "); cat(getOption("mc.cores", 2))
   
   allregime <- expand.grid(a1 = a1s, a2 = a2s)
   regimenames <- as.character(with(allregime, interaction(a1,a2)))

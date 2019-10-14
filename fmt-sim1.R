@@ -2,9 +2,9 @@ library(tidyverse)
 library(purrr)
 library(xtable)
 source("fmt-funcs.R")
-
-ssizes <- c(50, 200, 1000, 5000)
-effsizes <- c('small','med','large')
+fnames <- list.files(pattern = 'sim1-.*\\.RData')
+ssizes <- unique(as.numeric(str_match(fnames, '(-N)([0-9]+)')[,3]))
+effsizes <- unique(str_extract(fnames, 'small|med|large'))
 effsizevalues <- c('small' = 0.2, 'med' = 0.5, 'large' = 0.8)
 conflvl <- 0.95
 contrast_res <- NULL
