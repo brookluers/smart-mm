@@ -1,6 +1,5 @@
 library(MASS)
 library(tmvtnorm)
-library(truncnorm)
 
 get_pinr <- function(alpha, knot, a1, G, ff_Z, sigma, cutoff) {
   mu <- alpha[1] + knot * alpha[2] + knot * alpha[3] * a1
