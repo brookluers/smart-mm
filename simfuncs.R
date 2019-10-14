@@ -79,12 +79,10 @@ get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
       )
     })
     
-  cat("\nTrue regression coefficients\n")
-  (truecoeflist <- lapply(alphalist, function(aa){
+  truecoeflist <- lapply(alphalist, function(aa){
     return(get_truecoefs(aa, theta, knot, G, ff_Zgen, sigma, cutoff))
-  }))
+  })
   
-  cat("\nProbability of nonresponder: \n")
    pinr_a1 <-
       lapply(effsizenames, function(effsize){
         setNames(
@@ -97,7 +95,6 @@ get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
     names(mmeanlist) <- 
     names(pinr_a1) <- effsizenames
   
-  cat(pinr_a1)
   
   vardat <- expand.grid(tval=tvec,
                         a1 = a1s,
@@ -113,9 +110,7 @@ get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
                                                                     psi, knot, 
                                                                     a1=a1, a2=a2, G, ff_Zgen, sigma,cutoff,fn_tscov = covfunc_epsilon)))
   
-  cat("Covariance of residual errors:\n")
   Sigma_epsilon <- get_Sigma_eps(tvec, fn_tscov = covfunc_epsilon, sigma=sigma)
-  cat(Sigma_epsilon)
   
   ff_po <- 
     Ya1a2 ~
