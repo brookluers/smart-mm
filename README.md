@@ -31,12 +31,10 @@ Rscript --vanilla fmt-sim1.R
 
 To obtain raw simulation results in `.RData` format:  
 ```
-Rscript --vanilla sim2.R 50 1000 304 3
-Rscript --vanilla sim2.R 200 1000 304 3
-Rscript --vanilla sim2.R 1000 1000 304 3
-Rscript --vanilla sim2.R 5000 1000 304 3 small
+Rscript --vanilla sim2.R 50 1000 304 3 med
+Rscript --vanilla sim2.R 200 1000 304 3 med
+Rscript --vanilla sim2.R 1000 1000 304 3 med
 Rscript --vanilla sim2.R 5000 1000 304 3 med
-Rscript --vanilla sim2.R 5000 1000 304 3 large
 ```
     
 To produce LaTeX table:
@@ -48,13 +46,11 @@ Rscript --vanilla fmt-sim2.R
 ## Simulation 3 (in supplementary materials)
 
 To obtain raw simulation results in `.RData` format:  
+
 ```
-Rscript --vanilla sim3.R 50 1000 304 3
-Rscript --vanilla sim3.R 200 1000 304 3
-Rscript --vanilla sim3.R 1000 1000 304 3
-Rscript --vanilla sim3.R 5000 1000 304 3 small
+Rscript --vanilla sim3.R 200 1000 304 3 med 
+Rscript --vanilla sim3.R 1000 1000 304 3 med
 Rscript --vanilla sim3.R 5000 1000 304 3 med
-Rscript --vanilla sim3.R 5000 1000 304 3 large
 ```
     
 To produce LaTeX table:
