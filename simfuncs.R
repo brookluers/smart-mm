@@ -11,7 +11,9 @@ get_simparm <- function(cmd_args, a1s, a2s, alphalist, effsizenames,
   myseed <- as.numeric(cmd_args[3])
   mycores <- cmd_args[4]
   doEffsize <- cmd_args[5]
+  RNGkind("L'Ecuyer-CMRG")
   set.seed(myseed)
+  mc.reset.stream()
   cat("\nN = "); cat(N)
   cat("\nnsim = "); cat(nsim)
   if (is.na(doEffsize)) {
