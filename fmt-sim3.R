@@ -3,6 +3,7 @@ library(xtable)
 source("fmt-funcs.R")
 fnames <- list.files(pattern = 'sim3-.*\\.RData')
 ssizes <- unique(as.numeric(str_match(fnames, '(-N)([0-9]+)')[,3]))
+ssizes <- ssizes[ssizes>50]
 effsizes <- unique(str_extract(fnames, 'small|med|large'))
 effsizevalues <- c('small' = 0.2, 'med' = 0.5, 'large' = 0.8)
 conflvl <- 0.95
@@ -72,7 +73,9 @@ writeLines("% dropout simulation ", texFile)
 writeLines("% medium effect size only", texFile)
 invisible(capture.output(x <- print(xtable(tt, digits = c(0,0,0,3,3,3,3,3,3)),
                                     include.rownames = FALSE, include.colnames = TRUE, floating = FALSE,
-                                    sanitize.colnames.function = identity, sanitize.text.function = identity,
+                                    sanitize.colnames.function = identity, 
+                                    math.style.negative=TRUE,
+                                    sanitize.text.function = identity,
                                     hline.after=c(0,nrow(tt)),
                                     booktabs = TRUE)))
 writeLines(x, texFile)

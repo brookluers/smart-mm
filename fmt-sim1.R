@@ -53,7 +53,9 @@ texFile <- file('sim1-table.tex', open = 'wt')
 writeLines("% correct model, LMM slopes and intercepts only", texFile)
 invisible(capture.output(x <- print(xtable(tt, digits = c(0,0,1,3,0,3,3,3,3,3)),
                                     include.rownames = FALSE, include.colnames = TRUE, floating = FALSE,
-                                    sanitize.colnames.function = identity, sanitize.text.function = identity,
+                                    sanitize.colnames.function = identity, 
+                                    math.style.negative=TRUE,
+                                    sanitize.text.function = identity,
                                     hline.after=c(0,nrow(tt)),
                                     booktabs = TRUE)))
 

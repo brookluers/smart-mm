@@ -69,7 +69,9 @@ writeLines("% misspecification, compare to GEE", texFile)
 writeLines("% medium effect size only", texFile)
 invisible(capture.output(x <- print(xtable(tt, digits = c(0,0,0,3,3,3,3,3,3)),
       include.rownames = FALSE, include.colnames = TRUE, floating = FALSE,
-      sanitize.colnames.function = identity, sanitize.text.function = identity,
+      sanitize.colnames.function = identity, 
+      math.style.negative=TRUE,
+      sanitize.text.function = identity,
       hline.after=c(0,nrow(tt)),
       booktabs = TRUE)))
 writeLines(x, texFile)
